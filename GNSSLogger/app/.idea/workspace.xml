@@ -1,0 +1,345 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="61bdc961-699c-40b8-bb04-7f7b2294b4a8" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/../../CONTRIBUTING.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../GNSSLogger.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/libs/achartengine-1.2.0.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/proguard-rules.pro" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/AndroidManifest.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/ic_launcher-web.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/AgnssFragment.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/AgnssUiLogger.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/DetectedActivitiesIntentReceiver.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/FileLogger.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/GnssContainer.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/GnssListener.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/GroundTruthModeSwitcher.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/HelpDialog.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/LoggerFragment.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/MainActivity.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/MapFragment.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/PlotFragment.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/RealTimePositionVelocityCalculator.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/ResultFragment.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/SettingsFragment.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/TimerFragment.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/TimerService.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/TimerValues.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/google/android/apps/location/gps/gnsslogger/UiLogger.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable-xhdpi/ic_launcher.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/ic_launcher.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/activity_main.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_agnss.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_log.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_main.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_plot.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/help.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/map_fragment.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/pop_up_window.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/results_log.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/timer.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-hdpi/ic_launcher.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-mdpi/ic_launcher.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-xhdpi/ic_launcher.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-xxhdpi/ic_launcher.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-xxxhdpi/ic_launcher.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/raw/help_contents.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/values-w820dp/dimens.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/values/colors.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/values/dimens.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/values/strings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/values/styles.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/xml/file_providers_paths.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../build.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../gradle.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../gradlew" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../gradlew.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/build.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/libs/asn1-base.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/libs/asn1-supl2.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/libs/commons-codec-1.10.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/libs/commons-math3-3.6.1.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/libs/guava-22.0-android.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/libs/protobuf-nano.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/libs/suplClient.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/AndroidManifest.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/Ecef2EnuConverter.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/Ecef2LlaConverter.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/EcefToTopocentricConverter.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/ElevationApiHelper.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/GpsMathOperations.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/GpsMeasurement.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/GpsMeasurementWithRangeAndUncertainty.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/GpsNavigationMessageStore.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/GpsTime.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/IonosphericModel.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/Lla2EcefConverter.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/PseudorangeNoSmoothingSmoother.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/PseudorangePositionVelocityFromRealTimeEvents.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/PseudorangeSmoother.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/ResidualCorrectionCalculator.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/SatelliteClockCorrectionCalculator.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/SatellitePositionCalculator.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/TroposphericModelEgnos.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pseudorange/src/main/java/com/google/location/lbs/gnss/gps/pseudorange/UserPositionVelocityWeightedLeastSquare.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../settings.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../LICENSE.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/CheckDataFilter.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/CheckGpsEphInputs.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/ClosestGpsEph.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/CompareVersions.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/Contents.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/DayOfYear.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/FlightTimeCorrection.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/GetNasaHourlyEphemeris.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/GnssThresholds.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/Gps2Utc.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/GpsAdrResiduals.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/GpsConstants.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/GpsEph2Dtsv.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/GpsEph2Pvt.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/GpsEph2Xyz.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/GpsWlsPvt.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/JulianDay.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/Kepler.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/LICENSE.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/LeapSeconds.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/Lla2Ned.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/Lla2Xyz.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/PlotAdr.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/PlotAdrResids.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/PlotCno.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/PlotPseudorangeRates.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/PlotPseudoranges.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/PlotPvt.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/PlotPvtStates.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/ProcessAdr.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/ProcessGnssMeas.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/ProcessGnssMeasScript.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/README.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/ReadGnssLogger.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/ReadRinexNav.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/RotEcef2Ned.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/SetDataFilter.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/Utc2Gps.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/WlsPvt.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/Xyz2Lla.m" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/demoFiles/hour1820.16n" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/demoFiles/hour2350.16n" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/demoFiles/prsWithPrInMeters.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/demoFiles/pseudoranges_log_2016_06_30_21_26_07.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/demoFiles/pseudoranges_log_2016_08_22_14_45_50.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../opensource/demoFiles/raw.csv" beforeDir="false" />
+    </list>
+    <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="DefaultGradleProjectSettings">
+    <option name="testRunner" value="GRADLE" />
+    <option name="delegatedBuild" value="true" />
+  </component>
+  <component name="ExternalProjectsManager">
+    <system id="GRADLE">
+      <state>
+        <projects_view />
+      </state>
+    </system>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../.." />
+  </component>
+  <component name="ProjectConfigurationFiles">
+    <option name="files">
+      <list>
+        <option value="$PROJECT_DIR$/.idea/vcs.xml" />
+      </list>
+    </option>
+  </component>
+  <component name="ProjectFrameBounds" extendedState="6">
+    <option name="x" value="67" />
+    <option name="y" value="25" />
+    <option name="width" value="1853" />
+    <option name="height" value="1055" />
+  </component>
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectView">
+    <navigator proportions="" version="1">
+      <foldersAlwaysOnTop value="true" />
+    </navigator>
+    <panes>
+      <pane id="ProjectPane" />
+      <pane id="PackagesPane" />
+      <pane id="Scope" />
+      <pane id="AndroidView">
+        <subPane>
+          <expand>
+            <path>
+              <item name="app" type="1abcf292:AndroidViewProjectNode" />
+              <item name="app" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="app" type="1abcf292:AndroidViewProjectNode" />
+              <item name="app" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="app" type="1abcf292:AndroidViewProjectNode" />
+              <item name="app" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="main" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="app" type="1abcf292:AndroidViewProjectNode" />
+              <item name="app" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="main" type="462c0819:PsiDirectoryNode" />
+              <item name="java" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="app" type="1abcf292:AndroidViewProjectNode" />
+              <item name="app" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="main" type="462c0819:PsiDirectoryNode" />
+              <item name="java" type="462c0819:PsiDirectoryNode" />
+              <item name="com" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="app" type="1abcf292:AndroidViewProjectNode" />
+              <item name="app" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="main" type="462c0819:PsiDirectoryNode" />
+              <item name="java" type="462c0819:PsiDirectoryNode" />
+              <item name="com" type="462c0819:PsiDirectoryNode" />
+              <item name="google" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="app" type="1abcf292:AndroidViewProjectNode" />
+              <item name="app" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="main" type="462c0819:PsiDirectoryNode" />
+              <item name="java" type="462c0819:PsiDirectoryNode" />
+              <item name="com" type="462c0819:PsiDirectoryNode" />
+              <item name="google" type="462c0819:PsiDirectoryNode" />
+              <item name="android" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="app" type="1abcf292:AndroidViewProjectNode" />
+              <item name="app" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="main" type="462c0819:PsiDirectoryNode" />
+              <item name="java" type="462c0819:PsiDirectoryNode" />
+              <item name="com" type="462c0819:PsiDirectoryNode" />
+              <item name="google" type="462c0819:PsiDirectoryNode" />
+              <item name="android" type="462c0819:PsiDirectoryNode" />
+              <item name="apps" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="app" type="1abcf292:AndroidViewProjectNode" />
+              <item name="app" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="main" type="462c0819:PsiDirectoryNode" />
+              <item name="java" type="462c0819:PsiDirectoryNode" />
+              <item name="com" type="462c0819:PsiDirectoryNode" />
+              <item name="google" type="462c0819:PsiDirectoryNode" />
+              <item name="android" type="462c0819:PsiDirectoryNode" />
+              <item name="apps" type="462c0819:PsiDirectoryNode" />
+              <item name="location" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="app" type="1abcf292:AndroidViewProjectNode" />
+              <item name="app" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="main" type="462c0819:PsiDirectoryNode" />
+              <item name="java" type="462c0819:PsiDirectoryNode" />
+              <item name="com" type="462c0819:PsiDirectoryNode" />
+              <item name="google" type="462c0819:PsiDirectoryNode" />
+              <item name="android" type="462c0819:PsiDirectoryNode" />
+              <item name="apps" type="462c0819:PsiDirectoryNode" />
+              <item name="location" type="462c0819:PsiDirectoryNode" />
+              <item name="gps" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="app" type="1abcf292:AndroidViewProjectNode" />
+              <item name="app" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="main" type="462c0819:PsiDirectoryNode" />
+              <item name="java" type="462c0819:PsiDirectoryNode" />
+              <item name="com" type="462c0819:PsiDirectoryNode" />
+              <item name="google" type="462c0819:PsiDirectoryNode" />
+              <item name="android" type="462c0819:PsiDirectoryNode" />
+              <item name="apps" type="462c0819:PsiDirectoryNode" />
+              <item name="location" type="462c0819:PsiDirectoryNode" />
+              <item name="gps" type="462c0819:PsiDirectoryNode" />
+              <item name="gnsslogger" type="462c0819:PsiDirectoryNode" />
+            </path>
+          </expand>
+          <select />
+        </subPane>
+      </pane>
+    </panes>
+  </component>
+  <component name="PropertiesComponent">
+    <property name="android.sdk.path" value="$USER_HOME$/Android/Sdk" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="settings.editor.selected.configurable" value="AndroidSdkUpdater" />
+  </component>
+  <component name="RunDashboard">
+    <option name="ruleStates">
+      <list>
+        <RuleState>
+          <option name="name" value="ConfigurationTypeDashboardGroupingRule" />
+        </RuleState>
+        <RuleState>
+          <option name="name" value="StatusDashboardGroupingRule" />
+        </RuleState>
+      </list>
+    </option>
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="61bdc961-699c-40b8-bb04-7f7b2294b4a8" name="Default Changelist" comment="" />
+      <created>1600065041879</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1600065041879</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="ToolWindowManager">
+    <frame x="67" y="25" width="1853" height="1055" extended-state="6" />
+    <layout>
+      <window_info content_ui="combo" id="Project" visible="true" weight="0.32982844" />
+      <window_info id="Structure" side_tool="true" />
+      <window_info id="Build Variants" side_tool="true" />
+      <window_info id="Image Layers" />
+      <window_info id="Designer" />
+      <window_info id="Resources Explorer" />
+      <window_info id="Capture Tool" />
+      <window_info id="Favorites" side_tool="true" />
+      <window_info id="Captures" order="0" weight="0.25" />
+      <window_info anchor="bottom" id="Version Control" />
+      <window_info anchor="bottom" id="TODO" />
+      <window_info anchor="bottom" id="Terminal" />
+      <window_info anchor="bottom" id="Event Log" side_tool="true" />
+      <window_info active="true" anchor="bottom" id="Build" visible="true" weight="0.32937366" />
+      <window_info anchor="right" id="Capture Analysis" />
+      <window_info anchor="right" id="Gradle" />
+      <window_info anchor="right" id="Theme Preview" />
+      <window_info anchor="right" id="Palette&#9;" />
+    </layout>
+  </component>
+</project>
