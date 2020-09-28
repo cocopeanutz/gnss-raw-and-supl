@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: javax.mail:mail:1.4">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/javax/mail/mail/1.4/mail-1.4.jar!/" />
+      <root url="jar://$USER_HOME$/.m2/repository/javax/mail/mail/1.4/mail-1.4.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

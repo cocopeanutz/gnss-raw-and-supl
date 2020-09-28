@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: org.sonatype.plexus:plexus-cipher:1.4">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/sonatype/plexus/plexus-cipher/1.4/plexus-cipher-1.4.jar!/" />
+      <root url="jar://$USER_HOME$/.m2/repository/org/sonatype/plexus/plexus-cipher/1.4/plexus-cipher-1.4.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

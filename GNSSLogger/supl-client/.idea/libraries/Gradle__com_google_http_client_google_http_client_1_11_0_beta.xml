@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: com.google.http-client:google-http-client:1.11.0-beta">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/com/google/http-client/google-http-client/1.11.0-beta/google-http-client-1.11.0-beta.jar!/" />
+      <root url="jar://$USER_HOME$/.m2/repository/com/google/http-client/google-http-client/1.11.0-beta/google-http-client-1.11.0-beta.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

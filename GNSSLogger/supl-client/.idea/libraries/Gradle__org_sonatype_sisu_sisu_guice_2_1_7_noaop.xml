@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: org.sonatype.sisu:sisu-guice:2.1.7:noaop">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/sonatype/sisu/sisu-guice/2.1.7/sisu-guice-2.1.7-noaop.jar!/" />
+      <root url="jar://$USER_HOME$/.m2/repository/org/sonatype/sisu/sisu-guice/2.1.7/sisu-guice-2.1.7-noaop.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
