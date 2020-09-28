@@ -1,1 +1,1 @@
-include ':app', ':pseudorange'
+include ':app', ':pseudorange', ':supl-client'

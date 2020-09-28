@@ -48,6 +48,6 @@
         <receiver
             android:name="com.google.android.apps.location.gps.gnsslogger.DetectedActivitiesIntentReceiver"
             android:exported="false" />
+        <uses-library android:name="com.google.android.maps" />
     </application>
-<uses-library android:name="com.google.android.maps" />
 </manifest>

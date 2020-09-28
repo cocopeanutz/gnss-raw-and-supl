@@ -5,6 +5,7 @@
       <module fileurl="file://$PROJECT_DIR$/GNSSLogger.iml" filepath="$PROJECT_DIR$/GNSSLogger.iml" group="GNSSLogger" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/app.iml" filepath="$PROJECT_DIR$/.idea/modules/app/app.iml" group="GNSSLogger/app" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/pseudorange/pseudorange.iml" filepath="$PROJECT_DIR$/.idea/modules/pseudorange/pseudorange.iml" group="GNSSLogger/pseudorange" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/supl-client/supl-client.iml" filepath="$PROJECT_DIR$/.idea/modules/supl-client/supl-client.iml" group="GNSSLogger/supl-client" />
     </modules>
   </component>
 </project>

@@ -32,6 +32,8 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
@@ -53,6 +55,11 @@ import com.google.android.gms.location.ActivityRecognition;
 import com.google.android.gms.location.ActivityRecognitionResult;
 import com.google.android.gms.location.DetectedActivity;
 import java.util.Locale;
+
+import com.google.location.suplclient.supl.SuplTester;
+
+
+
 
 /** The activity for the application. */
 public class MainActivity extends AppCompatActivity
@@ -139,6 +146,21 @@ public class MainActivity extends AppCompatActivity
     setContentView(R.layout.activity_main);
     buildGoogleApiClient();
     requestPermissionAndSetupFragments(this);
+
+    Log.i("testtag", "beforeNewTester");
+    AndroidLoggingHandler.reset(new AndroidLoggingHandler());
+
+    SuplTester newTester = new SuplTester();
+
+    HandlerThread handlerThread = new HandlerThread("mainHandlerThread");
+    handlerThread.start();
+    Handler handler = new Handler(handlerThread.getLooper());
+
+    handler.post(new Runnable(){
+    public void run (){
+      newTester.runStepByStepTcpClientTest();
+    }});
+    Log.i("testtag", "afterNewTester");
   }
 
   protected PendingIntent createActivityDetectionPendingIntent() {
