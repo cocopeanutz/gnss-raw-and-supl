@@ -45,11 +45,16 @@ class GpsMeasurement {
 
   /** Pseudorange rate uncertainty (meter per seconds) */
   public final double pseudorangeRateUncertaintyMps;
+
+  /** Constellation Type */
+  public final int constellationType;
+
+  public final long transmitTimeNs;
   
   public GpsMeasurement(long arrivalTimeSinceGpsWeekNs, double accumulatedDeltaRangeMeters,
       boolean validAccumulatedDeltaRangeMeters, double pseudorangeRateMps,
       double signalToNoiseRatioDb, double accumulatedDeltaRangeUncertaintyMeters,
-      double pseudorangeRateUncertaintyMps) {
+      double pseudorangeRateUncertaintyMps, int constellationType, long transmitTimeNs) {
     this.arrivalTimeSinceGpsWeekNs = arrivalTimeSinceGpsWeekNs;
     this.accumulatedDeltaRangeMeters = accumulatedDeltaRangeMeters;
     this.validAccumulatedDeltaRangeMeters = validAccumulatedDeltaRangeMeters;
@@ -57,12 +62,15 @@ class GpsMeasurement {
     this.signalToNoiseRatioDb = signalToNoiseRatioDb;
     this.accumulatedDeltaRangeUncertaintyMeters = accumulatedDeltaRangeUncertaintyMeters;
     this.pseudorangeRateUncertaintyMps = pseudorangeRateUncertaintyMps;
+    this.constellationType = constellationType;
+    this.transmitTimeNs = transmitTimeNs;
   }  
 
   protected GpsMeasurement(GpsMeasurement another) {
     this(another.arrivalTimeSinceGpsWeekNs, another.accumulatedDeltaRangeMeters,
         another.validAccumulatedDeltaRangeMeters, another.pseudorangeRateMps,
         another.signalToNoiseRatioDb, another.accumulatedDeltaRangeUncertaintyMeters,
-        another.pseudorangeRateUncertaintyMps);
-  } 
+        another.pseudorangeRateUncertaintyMps, another.constellationType,
+        another.transmitTimeNs);
+  }
 }

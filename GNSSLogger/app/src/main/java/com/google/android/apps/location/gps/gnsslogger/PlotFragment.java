@@ -76,7 +76,7 @@ public class PlotFragment extends Fragment {
   private static final int DATA_SET_INDEX_ALL = 0;
 
   /** The number of satellites we pick for the strongest satellite signal strength calculation */
-  private static final int NUMBER_OF_STRONGEST_SATELLITES = 4;
+  private static final int NUMBER_OF_STRONGEST_SATELLITES = 6;
 
   /** Data format used to format the data in the text view */
   private static final DecimalFormat sDataFormat =

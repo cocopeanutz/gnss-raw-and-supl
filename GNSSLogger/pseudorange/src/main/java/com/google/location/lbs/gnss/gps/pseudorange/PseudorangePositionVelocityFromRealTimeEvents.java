@@ -24,9 +24,10 @@ import android.location.GnssStatus;
 import android.util.Log;
 import com.google.location.lbs.gnss.gps.pseudorange.Ecef2EnuConverter.EnuValues;
 import com.google.location.lbs.gnss.gps.pseudorange.Ecef2LlaConverter.GeodeticLlaValues;
-import android.location.cts.nano.Ephemeris.GpsEphemerisProto;
-import android.location.cts.nano.Ephemeris.GpsNavMessageProto;
-import android.location.cts.suplClient.SuplRrlpController;
+//import android.location.cts.nano.Ephemeris.GpsEphemerisProto;
+//import android.location.cts.nano.Ephemeris.GpsNavMessageProto;
+//import android.location.cts.suplClient.SuplRrlpController;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.UnknownHostException;
@@ -35,6 +36,16 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+
+import com.google.location.suplclient.ephemeris.EphemerisResponse;
+import com.google.location.suplclient.ephemeris.GalEphemeris;
+import com.google.location.suplclient.ephemeris.GloEphemeris;
+import com.google.location.suplclient.ephemeris.GnssEphemeris;
+import com.google.location.suplclient.ephemeris.GpsEphemeris;
+import com.google.location.suplclient.supl.SuplConnectionRequest;
+import com.google.location.suplclient.supl.SuplController;
+import com.google.location.suplclient.supl.SuplTester;
 
 /**
  * Helper class for calculating Gps position and velocity solution using weighted least squares
@@ -49,13 +60,13 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
   private static final int TOW_DECODED_MEASUREMENT_STATE_BIT = 3;
   /** Average signal travel time from GPS satellite and earth */
   private static final int VALID_ACCUMULATED_DELTA_RANGE_STATE = 1;
-  private static final int MINIMUM_NUMBER_OF_USEFUL_SATELLITES = 4;
+  private static final int MINIMUM_NUMBER_OF_USEFUL_SATELLITES = 6;
   private static final int C_TO_N0_THRESHOLD_DB_HZ = 18;
 
   private static final String SUPL_SERVER_NAME = "supl.google.com";
-  private static final int SUPL_SERVER_PORT = 7276;
+  private static final int SUPL_SERVER_PORT = 7275;
 
-  private GpsNavMessageProto mHardwareGpsNavMessageProto = null;
+//  private GpsNavMessageProto mHardwareGpsNavMessageProto = null;
 
   // navigation message parser
   private GpsNavigationMessageStore mGpsNavigationMessageStore = new GpsNavigationMessageStore();
@@ -72,7 +83,7 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
   private long mLastReceivedSuplMessageTimeMillis = 0;
   private long mDeltaTimeMillisToMakeSuplRequest = TimeUnit.MINUTES.toMillis(30);
   private boolean mFirstSuplRequestNeeded = true;
-  private GpsNavMessageProto mGpsNavMessageProtoUsed = null;
+  private EphemerisResponse ephemerisResponse = null;
 
   // Only the interface of pseudorange smoother is provided. Please implement customized smoother.
   PseudorangeSmoother mPseudorangeSmoother = new PseudorangeNoSmoothingSmoother();
@@ -112,7 +123,8 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
 
     for (GnssMeasurement measurement : event.getMeasurements()) {
       // ignore any measurement if it is not from GPS constellation
-      if (measurement.getConstellationType() != GnssStatus.CONSTELLATION_GPS) {
+      if (measurement.getConstellationType() != GnssStatus.CONSTELLATION_GPS
+      && measurement.getConstellationType() != GnssStatus.CONSTELLATION_GALILEO) {
         continue;
       }
       // ignore raw data if time is zero, if signal to noise ratio is below threshold or if
@@ -134,7 +146,9 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
         if (receivedGPSTowNs > mLargestTowNs) {
           mLargestTowNs = receivedGPSTowNs;
         }
-        mUsefulSatellitesToTowNs[measurement.getSvid() - 1] = receivedGPSTowNs;
+
+        int n = getConstellationIndexPadding(measurement.getConstellationType());
+        mUsefulSatellitesToTowNs[n + measurement.getSvid() - 1] = receivedGPSTowNs;
         GpsMeasurement gpsReceiverMeasurement =
             new GpsMeasurement(
                 (long) mArrivalTimeSinceGPSWeekNs,
@@ -143,16 +157,16 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
                 measurement.getPseudorangeRateMetersPerSecond(),
                 measurement.getCn0DbHz(),
                 measurement.getAccumulatedDeltaRangeUncertaintyMeters(),
-                measurement.getPseudorangeRateUncertaintyMetersPerSecond());
-        mUsefulSatellitesToReceiverMeasurements[measurement.getSvid() - 1] = gpsReceiverMeasurement;
+                measurement.getPseudorangeRateUncertaintyMetersPerSecond(),
+                measurement.getConstellationType(),
+                measurement.getReceivedSvTimeNanos());
+        mUsefulSatellitesToReceiverMeasurements[n + measurement.getSvid() - 1] = gpsReceiverMeasurement;
       }
     }
 
     // check if we should continue using the navigation message from the SUPL server, or use the
     // navigation message from the device if we fully received it
-    boolean useNavMessageFromSupl =
-        continueUsingNavMessageFromSupl(
-            mUsefulSatellitesToReceiverMeasurements, mHardwareGpsNavMessageProto);
+    boolean useNavMessageFromSupl = true;
     if (useNavMessageFromSupl) {
       Log.d(TAG, "Using navigation message from SUPL server");
 
@@ -160,8 +174,8 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
           || (System.currentTimeMillis() - mLastReceivedSuplMessageTimeMillis)
               > mDeltaTimeMillisToMakeSuplRequest) {
         // The following line is blocking call for SUPL connection and back. But it is fast enough
-        mGpsNavMessageProtoUsed = getSuplNavMessage(mReferenceLocation[0], mReferenceLocation[1]);
-        if (!isEmptyNavMessage(mGpsNavMessageProtoUsed)) {
+        ephemerisResponse = getSuplNavMessage(mReferenceLocation[0], mReferenceLocation[1]);
+        if (!isEmptyNavMessage(ephemerisResponse)) {
           mFirstSuplRequestNeeded = false;
           mLastReceivedSuplMessageTimeMillis = System.currentTimeMillis();
         } else {
@@ -169,20 +183,21 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
         }
       }
 
-    } else {
-      Log.d(TAG, "Using navigation message from the GPS receiver");
-      mGpsNavMessageProtoUsed = mHardwareGpsNavMessageProto;
     }
 
     // some times the SUPL server returns less satellites than the visible ones, so remove those
     // visible satellites that are not returned by SUPL
     for (int i = 0; i < GpsNavigationMessageStore.MAX_NUMBER_OF_SATELLITES; i++) {
-      if (mUsefulSatellitesToReceiverMeasurements[i] != null
-          && !navMessageProtoContainsSvid(mGpsNavMessageProtoUsed, i + 1)) {
-        mUsefulSatellitesToReceiverMeasurements[i] = null;
-        mUsefulSatellitesToTowNs[i] = null;
+      if (mUsefulSatellitesToReceiverMeasurements[i] != null){
+        int n = getConstellationIndexPadding(mUsefulSatellitesToReceiverMeasurements[i].constellationType);
+        if (!navMessageProtoContainsSvid(ephemerisResponse, i + 1 - n,
+                mUsefulSatellitesToReceiverMeasurements[i].constellationType)) {
+          mUsefulSatellitesToReceiverMeasurements[i] = null;
+          mUsefulSatellitesToTowNs[i] = null;
+        }
       }
     }
+
 
     // calculate the number of useful satellites
     int numberOfUsefulSatellites = 0;
@@ -191,13 +206,14 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
         numberOfUsefulSatellites++;
       }
     }
+    if (numberOfUsefulSatellites < MINIMUM_NUMBER_OF_USEFUL_SATELLITES) Log.d(TAG, "Less than 6 satelllites detected!\n");
     if (numberOfUsefulSatellites >= MINIMUM_NUMBER_OF_USEFUL_SATELLITES) {
       // ignore first set of > 4 satellites as they often result in erroneous position
       if (!mFirstUsefulMeasurementSet) {
         // start with last known position and velocity of zero. Following the structure:
-        // [X position, Y position, Z position, clock bias,
-        //  X Velocity, Y Velocity, Z Velocity, clock bias rate]
-        double[] positionVelocitySolutionEcef = GpsMathOperations.createAndFillArray(8, 0);
+        // [X position, Y position, Z position, clock bias gps,
+        //  X Velocity, Y Velocity, Z Velocity, clock bias rate, clock bias galileo]
+        double[] positionVelocitySolutionEcef = GpsMathOperations.createAndFillArray(9, 0);
         double[] positionVelocityUncertaintyEnu = GpsMathOperations.createAndFillArray(6, 0);
         double[] pseudorangeResidualMeters
             = GpsMathOperations.createAndFillArray(
@@ -294,17 +310,31 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
     }
   }
 
-  private boolean isEmptyNavMessage(GpsNavMessageProto navMessageProto) {
-    if(navMessageProto.iono == null)return true;
-    if(navMessageProto.ephemerids.length ==0)return true;
+  private int getConstellationIndexPadding(int constellationType){
+    if(constellationType==GnssStatus.CONSTELLATION_GPS){
+      return 0;
+    }else if(constellationType==GnssStatus.CONSTELLATION_GALILEO){
+      return GpsNavigationMessageStore.MAX_NUMBER_OF_GPS_SATELLITE;
+    }
+    return 0;
+  }
+
+  private boolean isEmptyNavMessage(EphemerisResponse ephemerisResponse) {
+    if(ephemerisResponse.ionoProto == null)return true;
+    if(ephemerisResponse.ephList.size() == 0)return true;
     return  false;
   }
 
-  private boolean navMessageProtoContainsSvid(GpsNavMessageProto navMessageProto, int svid) {
-    List<GpsEphemerisProto> ephemeridesList =
-            new ArrayList<GpsEphemerisProto>(Arrays.asList(navMessageProto.ephemerids));
-    for (GpsEphemerisProto ephProtoFromList : ephemeridesList) {
-      if (ephProtoFromList.prn == svid) {
+  private boolean navMessageProtoContainsSvid(EphemerisResponse ephemerisResponse, int svid, int constellationType) {
+//    List<GnssEphemeris> ephemeridesList =
+//            new ArrayList<GnssEphemeris>(Arrays.asList(ephemerisResponse.ephList));
+
+    for (GnssEphemeris ephProto : ephemerisResponse.ephList) {
+      int constelType = GnssStatus.CONSTELLATION_UNKNOWN;
+      if(ephProto instanceof GpsEphemeris) constelType = GnssStatus.CONSTELLATION_GPS;
+      if(ephProto instanceof GalEphemeris) constelType = GnssStatus.CONSTELLATION_GALILEO;
+      if(ephProto instanceof GloEphemeris) constelType = GnssStatus.CONSTELLATION_GLONASS;
+      if (constelType == constellationType && ephProto.svid == svid) {
         return true;
       }
     }
@@ -337,7 +367,7 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
 
     // calculate iterative least square position solution and velocity solutions
     userPositionVelocityLeastSquare.calculateUserPositionVelocityLeastSquare(
-        mGpsNavMessageProtoUsed,
+        ephemerisResponse,
         usefulSatellitesToPseudorangeMeasurements,
         arrivalTimeSinceGPSWeekNs * SECONDS_PER_NANO,
         gpsWeekNumber,
@@ -354,7 +384,8 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
             + positionVelocitySolutionEcef[1]
             + " "
             + positionVelocitySolutionEcef[2]);
-    Log.d(TAG, "Estimated Receiver clock offset in meters: " + positionVelocitySolutionEcef[3]);
+    Log.d(TAG, "Estimated gps Receiver clock offset in meters: " + positionVelocitySolutionEcef[3]);
+    Log.d(TAG, "Estimated gal Receiver clock offset in meters: " + positionVelocitySolutionEcef[8]);
 
     Log.d(
         TAG,
@@ -370,18 +401,26 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
   /**
    * Reads the navigation message from the SUPL server by creating a Stubby client to Stubby server
    * that wraps the SUPL server. The input is the time in nanoseconds since the GPS epoch at which
-   * the navigation message is required and the output is a {@link GpsNavMessageProto}
+   * the navigation message is required and the output is a {@link EphemerisResponse}
    *
    * @throws IOException
    * @throws UnknownHostException
    */
-  private GpsNavMessageProto getSuplNavMessage(long latE7, long lngE7)
+  private EphemerisResponse getSuplNavMessage(long latE7, long lngE7)
       throws UnknownHostException, IOException {
-    SuplRrlpController suplRrlpController =
-        new SuplRrlpController(SUPL_SERVER_NAME, SUPL_SERVER_PORT);
-    GpsNavMessageProto navMessageProto = suplRrlpController.generateNavMessage(latE7, lngE7);
-
-    return navMessageProto;
+    SuplConnectionRequest request =
+            SuplConnectionRequest.builder()
+                    .setServerHost(SUPL_SERVER_NAME)
+                    .setServerPort(SUPL_SERVER_PORT)
+                    .setSslEnabled(true)
+                    .setMessageLoggingEnabled(true)
+                    .setLoggingEnabled(true)
+                    .build();
+    SuplController suplController = new SuplController(request);
+    // Try to call methods to access SUPL server and see if they report any exception
+    suplController.sendSuplRequest(latE7, lngE7);
+    EphemerisResponse ephResponse = suplController.generateEphResponse(latE7, lngE7);
+    return ephResponse;
   }
 
   /**
@@ -389,51 +428,54 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
    * navigation message from the device if we fully received it. If the navigation message read from
    * the receiver has all the visible satellite ephemerides, return false, otherwise, return true.
    */
-  private static boolean continueUsingNavMessageFromSupl(
-          GpsMeasurement[] usefulSatellitesToReceiverMeasurements,
-          GpsNavMessageProto hardwareGpsNavMessageProto) {
-    boolean useNavMessageFromSupl = true;
-    if (hardwareGpsNavMessageProto != null) {
-      ArrayList<GpsEphemerisProto> hardwareEphemeridesList=
-              new ArrayList<GpsEphemerisProto>(Arrays.asList(hardwareGpsNavMessageProto.ephemerids));
-      if (hardwareGpsNavMessageProto.iono != null) {
-        for (int i = 0; i < GpsNavigationMessageStore.MAX_NUMBER_OF_SATELLITES; i++) {
-          if (usefulSatellitesToReceiverMeasurements[i] != null) {
-            int prn = i + 1;
-            for (GpsEphemerisProto hardwareEphProtoFromList : hardwareEphemeridesList) {
-              if (hardwareEphProtoFromList.prn == prn) {
-                useNavMessageFromSupl = false;
-                break;
-              }
-              useNavMessageFromSupl = true;
-            }
-            if (useNavMessageFromSupl == true) {
-              break;
-            }
-          }
-        }
-      }
-    }
-    return useNavMessageFromSupl;
-  }
+//  private static boolean continueUsingNavMessageFromSupl(
+//          GpsMeasurement[] usefulSatellitesToReceiverMeasurements,
+//          GpsNavMessageProto hardwareGpsNavMessageProto) {
+//    boolean useNavMessageFromSupl = true;
+//    if (hardwareGpsNavMessageProto != null) {
+//      ArrayList<GpsEphemerisProto> hardwareEphemeridesList=
+//              new ArrayList<GpsEphemerisProto>(Arrays.asList(hardwareGpsNavMessageProto.ephemerids));
+//      if (hardwareGpsNavMessageProto.iono != null) {
+//        for (int i = 0; i < GpsNavigationMessageStore.MAX_NUMBER_OF_SATELLITES; i++) {
+//          if (usefulSatellitesToReceiverMeasurements[i] != null) {
+//            int prn = i + 1;
+//            for (GpsEphemerisProto hardwareEphProtoFromList : hardwareEphemeridesList) {
+//              if (hardwareEphProtoFromList.prn == prn) {
+//                useNavMessageFromSupl = false;
+//                break;
+//              }
+//              useNavMessageFromSupl = true;
+//            }
+//            if (useNavMessageFromSupl == true) {
+//              break;
+//            }
+//          }
+//        }
+//      }
+//    }
+//    return useNavMessageFromSupl;
+//  }
 
   /**
    * Parses a string array containing an updates to the navigation message and return the most
-   * recent {@link GpsNavMessageProto}.
+   * recent {@link GnssNavigationMessage}.
    */
   public void parseHwNavigationMessageUpdates(GnssNavigationMessage navigationMessage) {
-    byte messagePrn = (byte) navigationMessage.getSvid();
-    byte messageType = (byte) (navigationMessage.getType() >> 8);
-    int subMessageId = navigationMessage.getSubmessageId();
+    //CHANGE TO NOP
+    return;
 
-    byte[] messageRawData = navigationMessage.getData();
-    // parse only GPS navigation messages for now
-    if (messageType == 1) {
-      mGpsNavigationMessageStore.onNavMessageReported(
-          messagePrn, messageType, (short) subMessageId, messageRawData);
-      mHardwareGpsNavMessageProto = mGpsNavigationMessageStore.createDecodedNavMessage();
-    }
 
+//    byte messagePrn = (byte) navigationMessage.getSvid();
+//    byte messageType = (byte) (navigationMessage.getType() >> 8);
+//    int subMessageId = navigationMessage.getSubmessageId();
+//
+//    byte[] messageRawData = navigationMessage.getData();
+//    // parse only GPS navigation messages for now
+//    if (messageType == 1) {
+//      mGpsNavigationMessageStore.onNavMessageReported(
+//          messagePrn, messageType, (short) subMessageId, messageRawData);
+//      mHardwareGpsNavMessageProto = mGpsNavigationMessageStore.createDecodedNavMessage();
+//    }
   }
 
   /** Sets a rough location of the receiver that can be used to request SUPL assistance data */

@@ -17,7 +17,14 @@
 package com.google.location.lbs.gnss.gps.pseudorange;
 
 import com.google.location.lbs.gnss.gps.pseudorange.SatelliteClockCorrectionCalculator.SatClockCorrection;
+import com.google.location.suplclient.ephemeris.GalEphemeris;
+import com.google.location.suplclient.ephemeris.GnssEphemeris;
+import com.google.location.suplclient.ephemeris.GpsEphemeris;
+import com.google.location.suplclient.ephemeris.KeplerianEphemeris;
+import com.google.location.suplclient.ephemeris.KeplerianModel;
+
 import android.location.cts.nano.Ephemeris.GpsEphemerisProto;
+import android.util.Log;
 
 /**
  * Class to calculate GPS satellite positions from the ephemeris data
@@ -52,11 +59,11 @@ public class SatellitePositionCalculator {
    * @throws Exception
    */
   public static PositionAndVelocity calculateSatellitePositionAndVelocityFromEphemeris
-  (GpsEphemerisProto ephemerisProto, double receiverGpsTowAtTimeOfTransmissionCorrectedSec,
-      int receiverGpsWeekAtTimeOfTransmission,
-      double userPosXMeters,
-      double userPosYMeters,
-      double userPosZMeters) throws Exception {
+  (GnssEphemeris ephemerisProto,
+   long txTimeNs, int gpsWeek,
+   double userPosXMeters,
+   double userPosYMeters,
+   double userPosZMeters) throws Exception {
 
     // lets start with a first user to sat distance guess of 70 ms and zero velocity
     RangeAndRangeRate userSatRangeAndRate = new RangeAndRangeRate
@@ -70,7 +77,7 @@ public class SatellitePositionCalculator {
             0.0 /* user velocity x*/, 0.0 /* user velocity y*/, 0.0 /* user velocity z */);
     for (int i = 0; i < NUMBER_OF_ITERATIONS_FOR_SAT_POS_CALCULATION; i++) {
       calculateSatellitePositionAndVelocity(ephemerisProto,
-          receiverGpsTowAtTimeOfTransmissionCorrectedSec, receiverGpsWeekAtTimeOfTransmission,
+          txTimeNs, gpsWeek,
           userSatRangeAndRate, satPosAndVel);
       computeUserToSatelliteRangeAndRangeRate(userPosAndVel, satPosAndVel, userSatRangeAndRate);
     }
@@ -95,136 +102,140 @@ public class SatellitePositionCalculator {
    * be set
    * @throws Exception
    */
-  public static void calculateSatellitePositionAndVelocity(GpsEphemerisProto ephemerisProto,
-      double receiverGpsTowAtTimeOfTransmissionCorrected, int receiverGpsWeekAtTimeOfTransmission,
+  public static void calculateSatellitePositionAndVelocity(GnssEphemeris ephemerisProto,
+      long txTimeNs, int gpsWeek,
       RangeAndRangeRate userSatRangeAndRate, PositionAndVelocity satPosAndVel) throws Exception {
+    if(ephemerisProto instanceof GpsEphemeris
+    || ephemerisProto instanceof GalEphemeris){
+      KeplerianEphemeris keplerianEphemeris = (KeplerianEphemeris) ephemerisProto;
+      KeplerianModel keplerianModel = keplerianEphemeris.keplerModel;
 
-    // Calculate satellite clock correction (meters), Kepler Eccentric anomaly (radians) and time
-    // from ephemeris reference epoch (tkSec) iteratively
-    SatClockCorrection satClockCorrectionValues =
-        SatelliteClockCorrectionCalculator.calculateSatClockCorrAndEccAnomAndTkIteratively(
-            ephemerisProto, receiverGpsTowAtTimeOfTransmissionCorrected,
-            receiverGpsWeekAtTimeOfTransmission);
+      // Calculate satellite clock correction (meters), Kepler Eccentric anomaly (radians) and time
+      // from ephemeris reference epoch (tkSec) iteratively
+      SatClockCorrection satClockCorrectionValues =
+              SatelliteClockCorrectionCalculator.calculateSatClockCorrAndEccAnomAndTkIteratively(
+                      ephemerisProto, txTimeNs, gpsWeek);
 
-    double eccentricAnomalyRadians = satClockCorrectionValues.eccentricAnomalyRadians;
-    double tkSec = satClockCorrectionValues.timeFromRefEpochSec;
+      double eccentricAnomalyRadians = satClockCorrectionValues.eccentricAnomalyRadians;
+      double tkSec = satClockCorrectionValues.timeFromRefEpochSec;
+      Log.w("PseudorangePositionVelocityFromRealTimeEvents", "tkSec:"+tkSec);
+      // True_anomaly (angle from perigee)
+      double trueAnomalyRadians = Math.atan2(
+              Math.sqrt(1.0 - keplerianModel.eccentricity * keplerianModel.eccentricity)
+                      * Math.sin(eccentricAnomalyRadians),
+              Math.cos(eccentricAnomalyRadians) - keplerianModel.eccentricity);
 
-    // True_anomaly (angle from perigee)
-    double trueAnomalyRadians = Math.atan2(
-            Math.sqrt(1.0 - ephemerisProto.e * ephemerisProto.e)
-                    * Math.sin(eccentricAnomalyRadians),
-            Math.cos(eccentricAnomalyRadians) - ephemerisProto.e);
+      // Argument of latitude of the satellite
+      double argumentOfLatitudeRadians = trueAnomalyRadians + keplerianModel.omega;
 
-    // Argument of latitude of the satellite
-    double argumentOfLatitudeRadians = trueAnomalyRadians + ephemerisProto.omega;
+      // Radius of satellite orbit
+      double radiusOfSatelliteOrbitMeters = keplerianModel.sqrtA * keplerianModel.sqrtA
+              * (1.0 - keplerianModel.eccentricity * Math.cos(eccentricAnomalyRadians));
 
-    // Radius of satellite orbit
-    double radiusOfSatelliteOrbitMeters = ephemerisProto.rootOfA * ephemerisProto.rootOfA
-            * (1.0 - ephemerisProto.e * Math.cos(eccentricAnomalyRadians));
+      // Radius correction due to second harmonic perturbations of the orbit
+      double radiusCorrectionMeters = keplerianModel.crc
+              * Math.cos(2.0 * argumentOfLatitudeRadians) + keplerianModel.crs
+              * Math.sin(2.0 * argumentOfLatitudeRadians);
+      // Argument of latitude correction due to second harmonic perturbations of the orbit
+      double argumentOfLatitudeCorrectionRadians = keplerianModel.cuc
+              * Math.cos(2.0 * argumentOfLatitudeRadians) + keplerianModel.cus
+              * Math.sin(2.0 * argumentOfLatitudeRadians);
+      // Correction to inclination due to second harmonic perturbations of the orbit
+      double inclinationCorrectionRadians = keplerianModel.cic
+              * Math.cos(2.0 * argumentOfLatitudeRadians) + keplerianModel.cis
+              * Math.sin(2.0 * argumentOfLatitudeRadians);
 
-    // Radius correction due to second harmonic perturbations of the orbit
-    double radiusCorrectionMeters = ephemerisProto.crc
-            * Math.cos(2.0 * argumentOfLatitudeRadians) + ephemerisProto.crs
-            * Math.sin(2.0 * argumentOfLatitudeRadians);
-    // Argument of latitude correction due to second harmonic perturbations of the orbit
-    double argumentOfLatitudeCorrectionRadians = ephemerisProto.cuc
-            * Math.cos(2.0 * argumentOfLatitudeRadians) + ephemerisProto.cus
-            * Math.sin(2.0 * argumentOfLatitudeRadians);
-    // Correction to inclination due to second harmonic perturbations of the orbit
-    double inclinationCorrectionRadians = ephemerisProto.cic
-            * Math.cos(2.0 * argumentOfLatitudeRadians) + ephemerisProto.cis
-            * Math.sin(2.0 * argumentOfLatitudeRadians);
+      // Corrected radius of satellite orbit
+      radiusOfSatelliteOrbitMeters += radiusCorrectionMeters;
+      // Corrected argument of latitude
+      argumentOfLatitudeRadians += argumentOfLatitudeCorrectionRadians;
+      // Corrected inclination
+      double inclinationRadians =
+              keplerianModel.i0 + inclinationCorrectionRadians + keplerianModel.iDot * tkSec;
 
-    // Corrected radius of satellite orbit
-    radiusOfSatelliteOrbitMeters += radiusCorrectionMeters;
-    // Corrected argument of latitude
-    argumentOfLatitudeRadians += argumentOfLatitudeCorrectionRadians;
-    // Corrected inclination
-    double inclinationRadians =
-            ephemerisProto.i0 + inclinationCorrectionRadians + ephemerisProto.iDot * tkSec;
+      // Position in orbital plane
+      double xPositionMeters = radiusOfSatelliteOrbitMeters * Math.cos(argumentOfLatitudeRadians);
+      double yPositionMeters = radiusOfSatelliteOrbitMeters * Math.sin(argumentOfLatitudeRadians);
 
-    // Position in orbital plane
-    double xPositionMeters = radiusOfSatelliteOrbitMeters * Math.cos(argumentOfLatitudeRadians);
-    double yPositionMeters = radiusOfSatelliteOrbitMeters * Math.sin(argumentOfLatitudeRadians);
+      // Corrected longitude of the ascending node (signal propagation time is included to compensate
+      // for the Sagnac effect)
+      double omegaKRadians = keplerianModel.omega0
+              + (keplerianModel.omegaDot - EARTH_ROTATION_RATE_RAD_PER_SEC) * tkSec
+              - EARTH_ROTATION_RATE_RAD_PER_SEC
+              * (keplerianModel.toeS + userSatRangeAndRate.rangeMeters / SPEED_OF_LIGHT_MPS);
 
-    // Corrected longitude of the ascending node (signal propagation time is included to compensate
-    // for the Sagnac effect)
-    double omegaKRadians = ephemerisProto.omega0
-            + (ephemerisProto.omegaDot - EARTH_ROTATION_RATE_RAD_PER_SEC) * tkSec
-            - EARTH_ROTATION_RATE_RAD_PER_SEC
-            * (ephemerisProto.toe + userSatRangeAndRate.rangeMeters / SPEED_OF_LIGHT_MPS);
+      // compute the resulting satellite position
+      double satPosXMeters = xPositionMeters * Math.cos(omegaKRadians) - yPositionMeters
+              * Math.cos(inclinationRadians) * Math.sin(omegaKRadians);
+      double satPosYMeters = xPositionMeters * Math.sin(omegaKRadians) + yPositionMeters
+              * Math.cos(inclinationRadians) * Math.cos(omegaKRadians);
+      double satPosZMeters = yPositionMeters * Math.sin(inclinationRadians);
 
-    // compute the resulting satellite position
-    double satPosXMeters = xPositionMeters * Math.cos(omegaKRadians) - yPositionMeters
-            * Math.cos(inclinationRadians) * Math.sin(omegaKRadians);
-    double satPosYMeters = xPositionMeters * Math.sin(omegaKRadians) + yPositionMeters
-            * Math.cos(inclinationRadians) * Math.cos(omegaKRadians);
-    double satPosZMeters = yPositionMeters * Math.sin(inclinationRadians);
+      // Satellite Velocity Computation using the broadcast ephemeris
+      // http://fenrir.naruoka.org/download/autopilot/note/080205_gps/gps_velocity.pdf
+      // Units are not added in some of the variable names to have the same name as the ICD-GPS200
+      // Semi-major axis of orbit (meters)
+      double a = keplerianModel.sqrtA * keplerianModel.sqrtA;
+      // Computed mean motion (radians/seconds)
+      double n0 = Math.sqrt(UNIVERSAL_GRAVITATIONAL_PARAMETER_M3_SM2 / (a * a * a));
+      // Corrected mean motion (radians/seconds)
+      double n = n0 + keplerianModel.deltaN;
+      // Derivative of mean anomaly (radians/seconds)
+      double meanAnomalyDotRadPerSec = n;
+      // Derivative of eccentric anomaly (radians/seconds)
+      double eccentricAnomalyDotRadPerSec =
+              meanAnomalyDotRadPerSec / (1.0 - keplerianModel.eccentricity * Math.cos(eccentricAnomalyRadians));
+      // Derivative of true anomaly (radians/seconds)
+      double trueAnomalyDotRadPerSec = Math.sin(eccentricAnomalyRadians)
+              * eccentricAnomalyDotRadPerSec
+              * (1.0 + keplerianModel.eccentricity * Math.cos(trueAnomalyRadians)) / (
+              Math.sin(trueAnomalyRadians)
+                      * (1.0 - keplerianModel.eccentricity * Math.cos(eccentricAnomalyRadians)));
+      // Derivative of argument of latitude (radians/seconds)
+      double argumentOfLatitudeDotRadPerSec = trueAnomalyDotRadPerSec + 2.0 * (keplerianModel.cus
+              * Math.cos(2.0 * argumentOfLatitudeRadians) - keplerianModel.cuc
+              * Math.sin(2.0 * argumentOfLatitudeRadians)) * trueAnomalyDotRadPerSec;
+      // Derivative of radius of satellite orbit (m/s)
+      double radiusOfSatelliteOrbitDotMPerSec = a * keplerianModel.eccentricity
+              * Math.sin(eccentricAnomalyRadians) * n
+              / (1.0 - keplerianModel.eccentricity * Math.cos(eccentricAnomalyRadians)) + 2.0 * (
+              keplerianModel.crs * Math.cos(2.0 * argumentOfLatitudeRadians)
+                      - keplerianModel.crc * Math.sin(2.0 * argumentOfLatitudeRadians))
+              * trueAnomalyDotRadPerSec;
+      // Derivative of the inclination (radians/seconds)
+      double inclinationDotRadPerSec = keplerianModel.iDot + (keplerianModel.cis
+              * Math.cos(2.0 * argumentOfLatitudeRadians) - keplerianModel.cic
+              * Math.sin(2.0 * argumentOfLatitudeRadians)) * 2.0 * trueAnomalyDotRadPerSec;
 
-    // Satellite Velocity Computation using the broadcast ephemeris
-    // http://fenrir.naruoka.org/download/autopilot/note/080205_gps/gps_velocity.pdf
-    // Units are not added in some of the variable names to have the same name as the ICD-GPS200
-    // Semi-major axis of orbit (meters)
-    double a = ephemerisProto.rootOfA * ephemerisProto.rootOfA;
-    // Computed mean motion (radians/seconds)
-    double n0 = Math.sqrt(UNIVERSAL_GRAVITATIONAL_PARAMETER_M3_SM2 / (a * a * a));
-    // Corrected mean motion (radians/seconds)
-    double n = n0 + ephemerisProto.deltaN;
-    // Derivative of mean anomaly (radians/seconds)
-    double meanAnomalyDotRadPerSec = n;
-    // Derivative of eccentric anomaly (radians/seconds)
-    double eccentricAnomalyDotRadPerSec =
-            meanAnomalyDotRadPerSec / (1.0 - ephemerisProto.e * Math.cos(eccentricAnomalyRadians));
-    // Derivative of true anomaly (radians/seconds)
-    double trueAnomalyDotRadPerSec = Math.sin(eccentricAnomalyRadians)
-            * eccentricAnomalyDotRadPerSec
-            * (1.0 + ephemerisProto.e * Math.cos(trueAnomalyRadians)) / (
-            Math.sin(trueAnomalyRadians)
-                    * (1.0 - ephemerisProto.e * Math.cos(eccentricAnomalyRadians)));
-    // Derivative of argument of latitude (radians/seconds)
-    double argumentOfLatitudeDotRadPerSec = trueAnomalyDotRadPerSec + 2.0 * (ephemerisProto.cus
-            * Math.cos(2.0 * argumentOfLatitudeRadians) - ephemerisProto.cuc
-            * Math.sin(2.0 * argumentOfLatitudeRadians)) * trueAnomalyDotRadPerSec;
-    // Derivative of radius of satellite orbit (m/s)
-    double radiusOfSatelliteOrbitDotMPerSec = a * ephemerisProto.e
-            * Math.sin(eccentricAnomalyRadians) * n
-            / (1.0 - ephemerisProto.e * Math.cos(eccentricAnomalyRadians)) + 2.0 * (
-            ephemerisProto.crs * Math.cos(2.0 * argumentOfLatitudeRadians)
-                    - ephemerisProto.crc * Math.sin(2.0 * argumentOfLatitudeRadians))
-            * trueAnomalyDotRadPerSec;
-    // Derivative of the inclination (radians/seconds)
-    double inclinationDotRadPerSec = ephemerisProto.iDot + (ephemerisProto.cis
-            * Math.cos(2.0 * argumentOfLatitudeRadians) - ephemerisProto.cic
-            * Math.sin(2.0 * argumentOfLatitudeRadians)) * 2.0 * trueAnomalyDotRadPerSec;
+      double xVelocityMPS = radiusOfSatelliteOrbitDotMPerSec * Math.cos(argumentOfLatitudeRadians)
+              - yPositionMeters * argumentOfLatitudeDotRadPerSec;
+      double yVelocityMPS = radiusOfSatelliteOrbitDotMPerSec * Math.sin(argumentOfLatitudeRadians)
+              + xPositionMeters * argumentOfLatitudeDotRadPerSec;
 
-    double xVelocityMPS = radiusOfSatelliteOrbitDotMPerSec * Math.cos(argumentOfLatitudeRadians)
-            - yPositionMeters * argumentOfLatitudeDotRadPerSec;
-    double yVelocityMPS = radiusOfSatelliteOrbitDotMPerSec * Math.sin(argumentOfLatitudeRadians)
-            + xPositionMeters * argumentOfLatitudeDotRadPerSec;
+      // Corrected rate of right ascension including compensation for the Sagnac effect
+      double omegaDotRadPerSec = keplerianModel.omegaDot - EARTH_ROTATION_RATE_RAD_PER_SEC
+              * (1.0 + userSatRangeAndRate.rangeRateMetersPerSec / SPEED_OF_LIGHT_MPS);
+      // compute the resulting satellite velocity
+      double satVelXMPS =
+              (xVelocityMPS - yPositionMeters * Math.cos(inclinationRadians) * omegaDotRadPerSec)
+                      * Math.cos(omegaKRadians) - (xPositionMeters * omegaDotRadPerSec + yVelocityMPS
+                      * Math.cos(inclinationRadians) - yPositionMeters * Math.sin(inclinationRadians)
+                      * inclinationDotRadPerSec) * Math.sin(omegaKRadians);
+      double satVelYMPS =
+              (xVelocityMPS - yPositionMeters * Math.cos(inclinationRadians) * omegaDotRadPerSec)
+                      * Math.sin(omegaKRadians) + (xPositionMeters * omegaDotRadPerSec + yVelocityMPS
+                      * Math.cos(inclinationRadians) - yPositionMeters * Math.sin(inclinationRadians)
+                      * inclinationDotRadPerSec) * Math.cos(omegaKRadians);
+      double satVelZMPS = yVelocityMPS * Math.sin(inclinationRadians) + yPositionMeters
+              * Math.cos(inclinationRadians) * inclinationDotRadPerSec;
 
-    // Corrected rate of right ascension including compensation for the Sagnac effect
-    double omegaDotRadPerSec = ephemerisProto.omegaDot - EARTH_ROTATION_RATE_RAD_PER_SEC
-            * (1.0 + userSatRangeAndRate.rangeRateMetersPerSec / SPEED_OF_LIGHT_MPS);
-    // compute the resulting satellite velocity
-    double satVelXMPS =
-            (xVelocityMPS - yPositionMeters * Math.cos(inclinationRadians) * omegaDotRadPerSec)
-                    * Math.cos(omegaKRadians) - (xPositionMeters * omegaDotRadPerSec + yVelocityMPS
-                    * Math.cos(inclinationRadians) - yPositionMeters * Math.sin(inclinationRadians)
-                    * inclinationDotRadPerSec) * Math.sin(omegaKRadians);
-    double satVelYMPS =
-            (xVelocityMPS - yPositionMeters * Math.cos(inclinationRadians) * omegaDotRadPerSec)
-                    * Math.sin(omegaKRadians) + (xPositionMeters * omegaDotRadPerSec + yVelocityMPS
-                    * Math.cos(inclinationRadians) - yPositionMeters * Math.sin(inclinationRadians)
-                    * inclinationDotRadPerSec) * Math.cos(omegaKRadians);
-    double satVelZMPS = yVelocityMPS * Math.sin(inclinationRadians) + yPositionMeters
-            * Math.cos(inclinationRadians) * inclinationDotRadPerSec;
-
-    satPosAndVel.positionXMeters = satPosXMeters;
-    satPosAndVel.positionYMeters = satPosYMeters;
-    satPosAndVel.positionZMeters = satPosZMeters;
-    satPosAndVel.velocityXMetersPerSec = satVelXMPS;
-    satPosAndVel.velocityYMetersPerSec = satVelYMPS;
-    satPosAndVel.velocityZMetersPerSec = satVelZMPS;
+      satPosAndVel.positionXMeters = satPosXMeters;
+      satPosAndVel.positionYMeters = satPosYMeters;
+      satPosAndVel.positionZMeters = satPosZMeters;
+      satPosAndVel.velocityXMetersPerSec = satVelXMPS;
+      satPosAndVel.velocityYMetersPerSec = satVelYMPS;
+      satPosAndVel.velocityZMetersPerSec = satVelZMPS;
+    }
   }
 
   /**

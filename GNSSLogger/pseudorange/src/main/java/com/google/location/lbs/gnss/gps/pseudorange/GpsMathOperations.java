@@ -16,6 +16,8 @@
 
 package com.google.location.lbs.gnss.gps.pseudorange;
 
+import android.util.Log;
+
 import java.util.Arrays;
 
 /**
@@ -66,6 +68,9 @@ public class GpsMathOperations {
     int matrixLength = matrix.length;
     int vectorLength = resultVector.length;
     if (vectorLength != matrix[0].length) {
+      Log.w("teststring", "matrix length:"+matrix[0].length+
+              ",vectorLength:"+vectorLength);
+      Log.w("teststring", Arrays.toString(resultVector));
       throw new ArithmeticException("Matrix and vector dimensions do not match");
     }
 

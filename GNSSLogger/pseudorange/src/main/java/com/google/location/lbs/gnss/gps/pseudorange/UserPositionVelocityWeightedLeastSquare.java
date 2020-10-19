@@ -16,14 +16,21 @@
 
 package com.google.location.lbs.gnss.gps.pseudorange;
 
+import android.location.GnssStatus;
+import android.util.Log;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.location.lbs.gnss.gps.pseudorange.Ecef2LlaConverter.GeodeticLlaValues;
 import com.google.location.lbs.gnss.gps.pseudorange.EcefToTopocentricConverter.TopocentricAEDValues;
 import com.google.location.lbs.gnss.gps.pseudorange.SatellitePositionCalculator.PositionAndVelocity;
-import android.location.cts.nano.Ephemeris.GpsEphemerisProto;
-import android.location.cts.nano.Ephemeris.GpsNavMessageProto;
+import com.google.location.suplclient.ephemeris.EphemerisResponse;
+import com.google.location.suplclient.ephemeris.GalEphemeris;
+import com.google.location.suplclient.ephemeris.GnssEphemeris;
+import com.google.location.suplclient.ephemeris.GpsEphemeris;
+//import android.location.cts.nano.Ephemeris.GpsEphemerisProto;
+//import android.location.cts.nano.Ephemeris.GpsNavMessageProto;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,6 +40,8 @@ import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.LUDecomposition;
 import org.apache.commons.math3.linear.QRDecomposition;
 import org.apache.commons.math3.linear.RealMatrix;
+
+import static java.lang.Double.isNaN;
 
 /**
  * Computes an iterative least square receiver position solution given the pseudorange (meters) and
@@ -45,7 +54,7 @@ class UserPositionVelocityWeightedLeastSquare {
   private static final double LEAST_SQUARE_TOLERANCE_METERS = 4.0e-8;
   /** Position correction threshold below which atmospheric correction will be applied */
   private static final double ATMOSPHERIC_CORRECTIONS_THRESHOLD_METERS = 1000.0;
-  private static final int MINIMUM_NUMBER_OF_SATELLITES = 4;
+  private static final int MINIMUM_NUMBER_OF_SATELLITES = 6;
   private static final double RESIDUAL_TO_REPEAT_LEAST_SQUARE_METERS = 20.0;
   private static final int MAXIMUM_NUMBER_OF_LEAST_SQUARE_ITERATIONS = 100;
   /** GPS C/A code chip width Tc = 1 microseconds */
@@ -119,11 +128,11 @@ class UserPositionVelocityWeightedLeastSquare {
    * <p>The function does not modify the smoothed measurement list {@code
    * immutableSmoothedSatellitesToReceiverMeasurements}
    *
-   * @param navMessageProto parameters of the navigation message
+   * @param ephemerisResponse parameters of the navigation message
    * @param usefulSatellitesToReceiverMeasurements Map of useful satellite PRN to {@link
    *     GpsMeasurementWithRangeAndUncertainty} containing receiver measurements for computing the
    *     position solution.
-   * @param receiverGPSTowAtReceptionSeconds Receiver estimate of GPS time of week (seconds)
+   * @param receiverGNSSTowAtReceptionSeconds Receiver estimate of GPS time of week (seconds)
    * @param receiverGPSWeek Receiver estimate of GPS week (0-1024+)
    * @param dayOfYear1To366 The day of the year between 1 and 366
    * @param positionVelocitySolutionECEF Solution array of the following format:
@@ -139,9 +148,9 @@ class UserPositionVelocityWeightedLeastSquare {
    *     pseudorange calculated with the use clock bias of the highest elevation satellites.
    */
   public void calculateUserPositionVelocityLeastSquare(
-      GpsNavMessageProto navMessageProto,
+      EphemerisResponse ephemerisResponse,
       List<GpsMeasurementWithRangeAndUncertainty> usefulSatellitesToReceiverMeasurements,
-      double receiverGPSTowAtReceptionSeconds,
+      double receiverGNSSTowAtReceptionSeconds,
       int receiverGPSWeek,
       int dayOfYear1To366,
       double[] positionVelocitySolutionECEF,
@@ -174,9 +183,9 @@ class UserPositionVelocityWeightedLeastSquare {
       boolean doAtmosphericCorrections = false;
       satPosPseudorangeResidualAndWeight =
           calculateSatPosAndPseudorangeResidual(
-              navMessageProto,
+              ephemerisResponse,
               mutableSmoothedSatellitesToReceiverMeasurements,
-              receiverGPSTowAtReceptionSeconds,
+              receiverGNSSTowAtReceptionSeconds,
               receiverGPSWeek,
               dayOfYear1To366,
               positionVelocitySolutionECEF,
@@ -188,6 +197,7 @@ class UserPositionVelocityWeightedLeastSquare {
           new Array2DRowRealMatrix(satPosPseudorangeResidualAndWeight.covarianceMatrixMetersSquare);
       geometryMatrix = new Array2DRowRealMatrix(calculateGeometryMatrix(
           satPosPseudorangeResidualAndWeight.satellitesPositionsMeters,
+          satPosPseudorangeResidualAndWeight.constellationType,
           positionVelocitySolutionECEF));
       RealMatrix weightedGeometryMatrix;
       RealMatrix weightMatrixMetersMinus2 = null;
@@ -201,11 +211,15 @@ class UserPositionVelocityWeightedLeastSquare {
         // Do not weight the geometry matrix if covariance matrix is singular.
         weightedGeometryMatrix = geometryMatrix;
       } else {
-        weightMatrixMetersMinus2 = ludCovMatrixM2.getSolver().getInverse();
-        RealMatrix hMatrix =
-            calculateHMatrix(weightMatrixMetersMinus2, geometryMatrix);
-        weightedGeometryMatrix = hMatrix.multiply(geometryMatrix.transpose())
-            .multiply(weightMatrixMetersMinus2);
+        try{
+          weightMatrixMetersMinus2 = ludCovMatrixM2.getSolver().getInverse();
+          RealMatrix hMatrix =
+                  calculateHMatrix(weightMatrixMetersMinus2, geometryMatrix);
+          weightedGeometryMatrix = hMatrix.multiply(geometryMatrix.transpose())
+                  .multiply(weightMatrixMetersMinus2);
+        }catch(Exception e){
+          weightedGeometryMatrix = geometryMatrix;
+        }
       }
 
       // Equation 9 page 413 from "Global Positioning System: Theory and Applications", Parkinson
@@ -219,12 +233,13 @@ class UserPositionVelocityWeightedLeastSquare {
       positionVelocitySolutionECEF[1] += deltaPositionMeters[1];
       positionVelocitySolutionECEF[2] += deltaPositionMeters[2];
       positionVelocitySolutionECEF[3] += deltaPositionMeters[3];
+      positionVelocitySolutionECEF[8] += deltaPositionMeters[4];
       // Iterate applying corrections to the position solution until correction is below threshold
       satPosPseudorangeResidualAndWeight =
           applyWeightedLeastSquare(
-              navMessageProto,
+              ephemerisResponse,
               mutableSmoothedSatellitesToReceiverMeasurements,
-              receiverGPSTowAtReceptionSeconds,
+              receiverGNSSTowAtReceptionSeconds,
               receiverGPSWeek,
               dayOfYear1To366,
               positionVelocitySolutionECEF,
@@ -281,28 +296,44 @@ class UserPositionVelocityWeightedLeastSquare {
         = new Array2DRowRealMatrix(numberOfUsefulSatellites, numberOfUsefulSatellites);
 
     // Correct the receiver time of week with the estimated receiver clock bias
-    receiverGPSTowAtReceptionSeconds =
-        receiverGPSTowAtReceptionSeconds - positionVelocitySolutionECEF[3] / SPEED_OF_LIGHT_MPS;
+    double receiverGpsTowAtReceptionSeconds = receiverGNSSTowAtReceptionSeconds - positionVelocitySolutionECEF[3] / SPEED_OF_LIGHT_MPS;
+    double receiverGalTowAtReceptionSeconds = receiverGNSSTowAtReceptionSeconds - positionVelocitySolutionECEF[8] / SPEED_OF_LIGHT_MPS;
 
     int measurementCount = 0;
 
     // Calculate range rates
     for (int i = 0; i < GpsNavigationMessageStore.MAX_NUMBER_OF_SATELLITES; i++) {
       if (mutableSmoothedSatellitesToReceiverMeasurements.get(i) != null) {
-        GpsEphemerisProto ephemeridesProto = getEphemerisForSatellite(navMessageProto, i + 1);
+        GnssEphemeris ephemeridesProto = null;
+        if(i < GpsNavigationMessageStore.MAX_NUMBER_OF_GPS_SATELLITE){
+          ephemeridesProto = getEphemerisForSatellite(ephemerisResponse, i + 1, GnssStatus.CONSTELLATION_GPS);
+        }else{
+          ephemeridesProto = getEphemerisForSatellite(ephemerisResponse, i + 1 - GpsNavigationMessageStore.MAX_NUMBER_OF_GPS_SATELLITE
+                  , GnssStatus.CONSTELLATION_GALILEO);
+        }
 
         double pseudorangeMeasurementMeters =
-            mutableSmoothedSatellitesToReceiverMeasurements.get(i).pseudorangeMeters;
-        GpsTimeOfWeekAndWeekNumber correctedTowAndWeek =
-            calculateCorrectedTransmitTowAndWeek(ephemeridesProto, receiverGPSTowAtReceptionSeconds,
-                receiverGPSWeek, pseudorangeMeasurementMeters);
-
+                mutableSmoothedSatellitesToReceiverMeasurements.get(i).pseudorangeMeters;
+//        GpsTimeOfWeekAndWeekNumber correctedTowAndWeek = null;
+//        if (mutableSmoothedSatellitesToReceiverMeasurements.get(i).constellationType ==
+//        GnssStatus.CONSTELLATION_GPS){
+//          Log.w("testingtag", "constellation:gps");
+//          correctedTowAndWeek = calculateCorrectedTransmitTowAndWeek(ephemeridesProto, receiverGpsTowAtReceptionSeconds,
+//                  receiverGPSWeek, pseudorangeMeasurementMeters);
+//        }else if(mutableSmoothedSatellitesToReceiverMeasurements.get(i).constellationType ==
+//                GnssStatus.CONSTELLATION_GALILEO){
+//          Log.w("testingtag", "constellation:gal");
+//          correctedTowAndWeek = calculateCorrectedTransmitTowAndWeek(ephemeridesProto, receiverGalTowAtReceptionSeconds,
+//                  receiverGPSWeek, pseudorangeMeasurementMeters);
+//        }else{
+//          Log.w("testingtag", "constellation:"+mutableSmoothedSatellitesToReceiverMeasurements.get(i).constellationType);
+//        }
         // Calculate satellite velocity
         PositionAndVelocity satPosECEFMetersVelocityMPS = SatellitePositionCalculator
             .calculateSatellitePositionAndVelocityFromEphemeris(
                 ephemeridesProto,
-                correctedTowAndWeek.gpsTimeOfWeekSeconds,
-                correctedTowAndWeek.weekNumber,
+                mutableSmoothedSatellitesToReceiverMeasurements.get(i).transmitTimeNs,
+                receiverGPSWeek,
                 positionVelocitySolutionECEF[0],
                 positionVelocitySolutionECEF[1],
                 positionVelocitySolutionECEF[2]);
@@ -311,8 +342,8 @@ class UserPositionVelocityWeightedLeastSquare {
         double satelliteClockErrorRateMps = SatelliteClockCorrectionCalculator.
             calculateSatClockCorrErrorRate(
                 ephemeridesProto,
-                correctedTowAndWeek.gpsTimeOfWeekSeconds,
-                correctedTowAndWeek.weekNumber);
+                mutableSmoothedSatellitesToReceiverMeasurements.get(i).transmitTimeNs,
+                receiverGPSWeek);
 
         // Fill in range rates. range rate = satellite velocity (dot product) line-of-sight vector
         rangeRateMps.setEntry(measurementCount, 0,  -1 * (
@@ -394,13 +425,14 @@ class UserPositionVelocityWeightedLeastSquare {
     RealMatrix positionH = calculateHMatrix(positionWeightMatrix, geometryMatrix);
 
     // Calculate the rotation Matrix to convert to local ENU system.
-    RealMatrix rotationMatrix = new Array2DRowRealMatrix(4, 4);
+    RealMatrix rotationMatrix = new Array2DRowRealMatrix(5, 5);
     GeodeticLlaValues llaValues = Ecef2LlaConverter.convertECEFToLLACloseForm
         (positionVelocitySolution[0], positionVelocitySolution[1], positionVelocitySolution[2]);
     rotationMatrix.setSubMatrix(
         Ecef2EnuConverter.getRotationMatrix(llaValues.longitudeRadians,
             llaValues.latitudeRadians).getData(), 0, 0);
     rotationMatrix.setEntry(3, 3, 1);
+    rotationMatrix.setEntry(4, 4, 1);
 
     // Convert to local ENU by pre-multiply rotation matrix and multiply rotation matrix transposed
     velocityH = rotationMatrix.multiply(velocityH).multiply(rotationMatrix.transpose());
@@ -427,6 +459,7 @@ class UserPositionVelocityWeightedLeastSquare {
       (RealMatrix weightMatrix, RealMatrix geometryMatrix){
 
     RealMatrix tempH = geometryMatrix.transpose().multiply(weightMatrix).multiply(geometryMatrix);
+    Log.w("trytag", Arrays.deepToString(tempH.getData()));
     return new LUDecomposition(tempH).getSolver().getInverse();
   }
 
@@ -436,7 +469,7 @@ class UserPositionVelocityWeightedLeastSquare {
    * {@value #MAXIMUM_NUMBER_OF_LEAST_SQUARE_ITERATIONS} is reached without convergence.
    */
   private SatellitesPositionPseudorangesResidualAndCovarianceMatrix applyWeightedLeastSquare(
-      GpsNavMessageProto navMessageProto,
+      EphemerisResponse ephemerisResponse,
       List<GpsMeasurementWithRangeAndUncertainty> usefulSatellitesToReceiverMeasurements,
       double receiverGPSTowAtReceptionSeconds,
       int receiverGPSWeek,
@@ -462,7 +495,7 @@ class UserPositionVelocityWeightedLeastSquare {
       // weight matrix for the iterative least square
       satPosPseudorangeResidualAndWeight =
           calculateSatPosAndPseudorangeResidual(
-              navMessageProto,
+              ephemerisResponse,
               usefulSatellitesToReceiverMeasurements,
               receiverGPSTowAtReceptionSeconds,
               receiverGPSWeek,
@@ -473,7 +506,12 @@ class UserPositionVelocityWeightedLeastSquare {
       // Calculate the geometry matrix according to "Global Positioning System: Theory and
       // Applications", Parkinson and Spilker page 413
       geometryMatrix = new Array2DRowRealMatrix(calculateGeometryMatrix(
-          satPosPseudorangeResidualAndWeight.satellitesPositionsMeters, positionSolutionECEF));
+          satPosPseudorangeResidualAndWeight.satellitesPositionsMeters,
+          satPosPseudorangeResidualAndWeight.constellationType,
+          positionSolutionECEF));
+
+      Log.w("PseudorangePositionVelocityFromRealTimeEvents", "satPosMeter"+Arrays.deepToString(satPosPseudorangeResidualAndWeight.satellitesPositionsMeters));
+
       // Apply weighted least square only if the covariance matrix is
       // not singular (has a non-zero determinant), otherwise apply ordinary least square.
       // The reason is to ignore reported signal to noise ratios by the receiver that can
@@ -481,24 +519,35 @@ class UserPositionVelocityWeightedLeastSquare {
       if (weightMatrixMetersMinus2 == null) {
         weightedGeometryMatrix = geometryMatrix;
       } else {
-        RealMatrix hMatrix =
-            calculateHMatrix(weightMatrixMetersMinus2, geometryMatrix);
-        weightedGeometryMatrix = hMatrix.multiply(geometryMatrix.transpose())
-            .multiply(weightMatrixMetersMinus2);
+        try{
+          RealMatrix hMatrix =
+                  calculateHMatrix(weightMatrixMetersMinus2, geometryMatrix);
+          weightedGeometryMatrix = hMatrix.multiply(geometryMatrix.transpose())
+                  .multiply(weightMatrixMetersMinus2);
+//          Log.w("testtag", Arrays.deepToString(geometryMatrix.getData()));
+
+        }catch(Exception e) {
+//          Log.w("testtag", Arrays.deepToString(geometryMatrix.getData()));
+//          Log.w("testingtag", Arrays.toString(satPosPseudorangeResidualAndWeight.pseudorangeResidualsMeters));
+          weightedGeometryMatrix = geometryMatrix;
+        }
       }
+//      Log.w("testtag", Arrays.deepToString(geometryMatrix.getData()));
 
       // Equation 9 page 413 from "Global Positioning System: Theory and Applications",
       // Parkinson and Spilker
       deltaPositionMeters =
-          GpsMathOperations.matrixByColVectMultiplication(
-              weightedGeometryMatrix.getData(),
-              satPosPseudorangeResidualAndWeight.pseudorangeResidualsMeters);
+              GpsMathOperations.matrixByColVectMultiplication(
+                      weightedGeometryMatrix.getData(),
+                      satPosPseudorangeResidualAndWeight.pseudorangeResidualsMeters);
+
 
       // Apply corrections to the position estimate
       positionSolutionECEF[0] += deltaPositionMeters[0];
       positionSolutionECEF[1] += deltaPositionMeters[1];
       positionSolutionECEF[2] += deltaPositionMeters[2];
       positionSolutionECEF[3] += deltaPositionMeters[3];
+      positionSolutionECEF[8] += deltaPositionMeters[4];
       numberOfIterations++;
       Preconditions.checkArgument(numberOfIterations <= MAXIMUM_NUMBER_OF_LEAST_SQUARE_ITERATIONS,
           "Maximum number of least square iterations reached without convergence...");
@@ -537,7 +586,7 @@ class UserPositionVelocityWeightedLeastSquare {
    * result is stored in an instance of {@link
    * SatellitesPositionPseudorangesResidualAndCovarianceMatrix}
    *
-   * @param navMessageProto parameters of the navigation message
+   * @param ephemerisResponse parameters of the navigation message
    * @param usefulSatellitesToReceiverMeasurements Map of useful satellite PRN to {@link
    *     GpsMeasurementWithRangeAndUncertainty} containing receiver measurements for computing the
    *     position solution
@@ -552,7 +601,7 @@ class UserPositionVelocityWeightedLeastSquare {
    */
   public SatellitesPositionPseudorangesResidualAndCovarianceMatrix
       calculateSatPosAndPseudorangeResidual(
-          GpsNavMessageProto navMessageProto,
+          EphemerisResponse ephemerisResponse,
           List<GpsMeasurementWithRangeAndUncertainty> usefulSatellitesToReceiverMeasurements,
           double receiverGPSTowAtReceptionSeconds,
           int receiverGpsWeek,
@@ -566,20 +615,23 @@ class UserPositionVelocityWeightedLeastSquare {
     double[] deltaPseudorangesMeters = new double[numberOfUsefulSatellites];
     double[][] satellitesPositionsECEFMeters = new double[numberOfUsefulSatellites][3];
 
+    // satellite constellationType
+    int[] constellationType = new int[numberOfUsefulSatellites];
+
     // satellite PRNs
     int[] satellitePRNs = new int[numberOfUsefulSatellites];
 
     // Ionospheric model parameters
     double[] alpha =
-            {navMessageProto.iono.alpha[0], navMessageProto.iono.alpha[1],
-                    navMessageProto.iono.alpha[2], navMessageProto.iono.alpha[3]};
-    double[] beta = {navMessageProto.iono.beta[0], navMessageProto.iono.beta[1],
-            navMessageProto.iono.beta[2], navMessageProto.iono.beta[3]};
+            {ephemerisResponse.ionoProto.getAlpha(0), ephemerisResponse.ionoProto.getAlpha(1),
+                    ephemerisResponse.ionoProto.getAlpha(2), ephemerisResponse.ionoProto.getAlpha(3)};
+    double[] beta = {ephemerisResponse.ionoProto.getBeta(0), ephemerisResponse.ionoProto.getBeta(1),
+            ephemerisResponse.ionoProto.getBeta(2), ephemerisResponse.ionoProto.getBeta(3)};
     // Weight matrix for the weighted least square
     RealMatrix covarianceMatrixMetersSquare =
         new Array2DRowRealMatrix(numberOfUsefulSatellites, numberOfUsefulSatellites);
     calculateSatPosAndResiduals(
-        navMessageProto,
+        ephemerisResponse,
         usefulSatellitesToReceiverMeasurements,
         receiverGPSTowAtReceptionSeconds,
         receiverGpsWeek,
@@ -591,11 +643,13 @@ class UserPositionVelocityWeightedLeastSquare {
         satellitePRNs,
         alpha,
         beta,
-        covarianceMatrixMetersSquare);
+        covarianceMatrixMetersSquare,
+        constellationType);
 
     return new SatellitesPositionPseudorangesResidualAndCovarianceMatrix(satellitePRNs,
         satellitesPositionsECEFMeters, deltaPseudorangesMeters,
-        covarianceMatrixMetersSquare.getData());
+        covarianceMatrixMetersSquare.getData(),
+        constellationType);
   }
 
   /**
@@ -606,9 +660,9 @@ class UserPositionVelocityWeightedLeastSquare {
    * {@code satellitePRNs} is as well filled.
    */
   private void calculateSatPosAndResiduals(
-      GpsNavMessageProto navMessageProto,
+      EphemerisResponse ephemerisResponse,
       List<GpsMeasurementWithRangeAndUncertainty> usefulSatellitesToReceiverMeasurements,
-      double receiverGPSTowAtReceptionSeconds,
+      double receiverGNSSTowAtReceptionSeconds,
       int receiverGpsWeek,
       int dayOfYear1To366,
       double[] userPositionECEFMeters,
@@ -618,18 +672,30 @@ class UserPositionVelocityWeightedLeastSquare {
       int[] satellitePRNs,
       double[] alpha,
       double[] beta,
-      RealMatrix covarianceMatrixMetersSquare)
+      RealMatrix covarianceMatrixMetersSquare,
+      int[] constellationType)
       throws Exception {
     // user position without the clock estimate
     double[] userPositionTempECEFMeters =
         {userPositionECEFMeters[0], userPositionECEFMeters[1], userPositionECEFMeters[2]};
     int satsCounter = 0;
+
+    // Correct the receiver time of week with the estimated receiver clock bias
+//    double receiverGpsTowAtReceptionSeconds = receiverGNSSTowAtReceptionSeconds - userPositionECEFMeters[3] / SPEED_OF_LIGHT_MPS;
+//    double receiverGalTowAtReceptionSeconds = receiverGNSSTowAtReceptionSeconds - userPositionECEFMeters[8] / SPEED_OF_LIGHT_MPS;
     for (int i = 0; i < GpsNavigationMessageStore.MAX_NUMBER_OF_SATELLITES; i++) {
       if (usefulSatellitesToReceiverMeasurements.get(i) != null) {
-        GpsEphemerisProto ephemeridesProto = getEphemerisForSatellite(navMessageProto, i + 1);
-        // Correct the receiver time of week with the estimated receiver clock bias
-        receiverGPSTowAtReceptionSeconds =
-            receiverGPSTowAtReceptionSeconds - userPositionECEFMeters[3] / SPEED_OF_LIGHT_MPS;
+        GnssEphemeris ephemeridesProto = null;
+        if(i < GpsNavigationMessageStore.MAX_NUMBER_OF_GPS_SATELLITE){
+          ephemeridesProto = getEphemerisForSatellite(ephemerisResponse, i + 1, GnssStatus.CONSTELLATION_GPS);
+        }else{
+          ephemeridesProto = getEphemerisForSatellite(ephemerisResponse, i + 1 - GpsNavigationMessageStore.MAX_NUMBER_OF_GPS_SATELLITE
+                  , GnssStatus.CONSTELLATION_GALILEO);
+        }
+        // input constellation Type
+        constellationType[satsCounter] = usefulSatellitesToReceiverMeasurements.get(i).constellationType;
+
+
 
         double pseudorangeMeasurementMeters =
             usefulSatellitesToReceiverMeasurements.get(i).pseudorangeMeters;
@@ -642,14 +708,22 @@ class UserPositionVelocityWeightedLeastSquare {
             pseudorangeUncertaintyMeters * pseudorangeUncertaintyMeters);
 
         // Calculate time of week at transmission time corrected with the satellite clock drift
-        GpsTimeOfWeekAndWeekNumber correctedTowAndWeek =
-            calculateCorrectedTransmitTowAndWeek(ephemeridesProto, receiverGPSTowAtReceptionSeconds,
-                receiverGpsWeek, pseudorangeMeasurementMeters);
+//        GpsTimeOfWeekAndWeekNumber correctedTowAndWeek = null;
+//        if(usefulSatellitesToReceiverMeasurements.get(i).constellationType == GnssStatus.CONSTELLATION_GPS){
+//          Log.w("tagstring", "collection:happy");
+//          correctedTowAndWeek = calculateCorrectedTransmitTowAndWeek(ephemeridesProto, receiverGpsTowAtReceptionSeconds,
+//                          receiverGpsWeek, pseudorangeMeasurementMeters);
+//        }else if(usefulSatellitesToReceiverMeasurements.get(i).constellationType == GnssStatus.CONSTELLATION_GALILEO){
+//          Log.w("tagstring", "collection:happy");
+//          correctedTowAndWeek = calculateCorrectedTransmitTowAndWeek(ephemeridesProto, receiverGalTowAtReceptionSeconds,
+//                          receiverGpsWeek, pseudorangeMeasurementMeters);
+//        }
 
         // calculate satellite position and velocity
         PositionAndVelocity satPosECEFMetersVelocityMPS = SatellitePositionCalculator
             .calculateSatellitePositionAndVelocityFromEphemeris(ephemeridesProto,
-                correctedTowAndWeek.gpsTimeOfWeekSeconds, correctedTowAndWeek.weekNumber,
+                usefulSatellitesToReceiverMeasurements.get(i).transmitTimeNs,
+                receiverGpsWeek,
                 userPositionECEFMeters[0], userPositionECEFMeters[1], userPositionECEFMeters[2]);
 
         satellitesPositionsECEFMeters[satsCounter][0] = satPosECEFMetersVelocityMPS.positionXMeters;
@@ -664,7 +738,7 @@ class UserPositionVelocityWeightedLeastSquare {
               IonosphericModel.ionoKlobucharCorrectionSeconds(
                       userPositionTempECEFMeters,
                       satellitesPositionsECEFMeters[satsCounter],
-                      correctedTowAndWeek.gpsTimeOfWeekSeconds,
+                      (double)usefulSatellitesToReceiverMeasurements.get(i).transmitTimeNs*(1E-9)%604800,
                       alpha,
                       beta,
                       IonosphericModel.L1_FREQ_HZ)
@@ -676,14 +750,18 @@ class UserPositionVelocityWeightedLeastSquare {
                   satellitesPositionsECEFMeters,
                   userPositionTempECEFMeters,
                   satsCounter);
+          if(isNaN(troposphericCorrectionMeters)){
+            troposphericCorrectionMeters = 0;
+          }
         } else {
           troposphericCorrectionMeters = 0.0;
           ionosphericCorrectionMeters = 0.0;
         }
         double predictedPseudorangeMeters =
             calculatePredictedPseudorange(userPositionECEFMeters, satellitesPositionsECEFMeters,
-                userPositionTempECEFMeters, satsCounter, ephemeridesProto, correctedTowAndWeek,
-                ionosphericCorrectionMeters, troposphericCorrectionMeters);
+                userPositionTempECEFMeters, satsCounter, ephemeridesProto,
+                usefulSatellitesToReceiverMeasurements.get(i).transmitTimeNs, receiverGpsWeek,
+                ionosphericCorrectionMeters, troposphericCorrectionMeters, usefulSatellitesToReceiverMeasurements.get(i).constellationType);
 
         // Pseudorange residual (difference of measured to predicted pseudoranges)
         deltaPseudorangesMeters[satsCounter] =
@@ -697,16 +775,20 @@ class UserPositionVelocityWeightedLeastSquare {
   }
 
   /** Searches ephemerides list for the ephemeris associated with current satellite in process */
-  private GpsEphemerisProto getEphemerisForSatellite(GpsNavMessageProto navMessageProto,
-                                                     int satPrn) {
-    List<GpsEphemerisProto> ephemeridesList
-            = new ArrayList<GpsEphemerisProto>(Arrays.asList(navMessageProto.ephemerids));
-    GpsEphemerisProto ephemeridesProto = null;
-    int ephemerisPrn = 0;
-    for (GpsEphemerisProto ephProtoFromList : ephemeridesList) {
-      ephemerisPrn = ephProtoFromList.prn;
-      if (ephemerisPrn == satPrn) {
-        ephemeridesProto = ephProtoFromList;
+  private GnssEphemeris getEphemerisForSatellite(EphemerisResponse ephemerisResponse,
+                                                     int satPrn, int constellationType) {
+    List<GnssEphemeris> ephemeridesList
+            = ephemerisResponse.ephList;
+
+    GnssEphemeris ephemeridesProto = null;
+    for (GnssEphemeris ephProto : ephemeridesList) {
+      int consteType = GnssStatus.CONSTELLATION_UNKNOWN;
+      if(ephProto instanceof GpsEphemeris) consteType = GnssStatus.CONSTELLATION_GPS;
+      if(ephProto instanceof GalEphemeris) consteType = GnssStatus.CONSTELLATION_GALILEO;
+      if (ephProto.svid == satPrn
+        && consteType != GnssStatus.CONSTELLATION_UNKNOWN
+        && consteType == constellationType) {
+        ephemeridesProto = ephProto;
         break;
       }
     }
@@ -719,26 +801,37 @@ class UserPositionVelocityWeightedLeastSquare {
       double[][] satellitesPositionsECEFMeters,
       double[] userPositionNoClockECEFMeters,
       int satsCounter,
-      GpsEphemerisProto ephemeridesProto,
-      GpsTimeOfWeekAndWeekNumber correctedTowAndWeek,
+      GnssEphemeris ephemeridesProto,
+      long txTimeNs,
+      int gpsWeek,
       double ionosphericCorrectionMeters,
-      double troposphericCorrectionMeters)
+      double troposphericCorrectionMeters,
+      int constellationType)
       throws Exception {
     // Calculate the satellite clock drift
     double satelliteClockCorrectionMeters =
         SatelliteClockCorrectionCalculator.calculateSatClockCorrAndEccAnomAndTkIteratively(
                 ephemeridesProto,
-                correctedTowAndWeek.gpsTimeOfWeekSeconds,
-                correctedTowAndWeek.weekNumber)
+                txTimeNs,
+                gpsWeek)
             .satelliteClockCorrectionMeters;
 
     double satelliteToUserDistanceMeters =
         GpsMathOperations.vectorNorm(GpsMathOperations.subtractTwoVectors(
             satellitesPositionsECEFMeters[satsCounter], userPositionNoClockECEFMeters));
     // Predicted pseudorange
-    double predictedPseudorangeMeters =
-        satelliteToUserDistanceMeters - satelliteClockCorrectionMeters + ionosphericCorrectionMeters
-            + troposphericCorrectionMeters + userPositionECEFMeters[3];
+
+    double predictedPseudorangeMeters = 0;
+    if(constellationType == GnssStatus.CONSTELLATION_GPS){
+      predictedPseudorangeMeters =
+      satelliteToUserDistanceMeters - satelliteClockCorrectionMeters + ionosphericCorrectionMeters
+              + troposphericCorrectionMeters + userPositionECEFMeters[3];
+    }else if(constellationType == GnssStatus.CONSTELLATION_GALILEO){
+      predictedPseudorangeMeters =
+              satelliteToUserDistanceMeters - satelliteClockCorrectionMeters + ionosphericCorrectionMeters
+                      + troposphericCorrectionMeters + userPositionECEFMeters[8];
+    }
+
     return predictedPseudorangeMeters;
   }
 
@@ -785,12 +878,14 @@ class UserPositionVelocityWeightedLeastSquare {
               elevationAboveSeaLevelMeters
       );
       troposphericCorrectionMeters = TroposphericModelEgnos.calculateTropoCorrectionMeters(
-          elevationAzimuthDist.elevationRadians, lla.latitudeRadians, elevationAboveSeaLevelMeters,
+          elevationAzimuthDist.elevationRadians, lla.latitudeRadians,
+          elevationAboveSeaLevelMeters,
           dayOfYear1To366);
     } else {
       troposphericCorrectionMeters = TroposphericModelEgnos.calculateTropoCorrectionMeters(
           elevationAzimuthDist.elevationRadians, lla.latitudeRadians,
-          lla.altitudeMeters - geoidHeightMeters, dayOfYear1To366);
+          lla.altitudeMeters - geoidHeightMeters,
+          dayOfYear1To366);
     }
     return troposphericCorrectionMeters;
   }
@@ -824,45 +919,47 @@ class UserPositionVelocityWeightedLeastSquare {
    * @param pseudorangeMeters Measured pseudorange in meters
    * @return GpsTimeOfWeekAndWeekNumber Object containing Gps time of week and week number.
    */
-  private static GpsTimeOfWeekAndWeekNumber calculateCorrectedTransmitTowAndWeek(
-      GpsEphemerisProto ephemerisProto, double receiverGpsTowAtReceptionSeconds,
-      int receiverGpsWeek, double pseudorangeMeters) throws Exception {
-    // GPS time of week at time of transmission: Gps time corrected for transit time (page 98 ICD
-    // GPS 200)
-    double receiverGpsTowAtTimeOfTransmission =
-        receiverGpsTowAtReceptionSeconds - pseudorangeMeters / SPEED_OF_LIGHT_MPS;
-
-    // Adjust for week rollover
-    if (receiverGpsTowAtTimeOfTransmission < 0) {
-      receiverGpsTowAtTimeOfTransmission += SECONDS_IN_WEEK;
-      receiverGpsWeek -= 1;
-    } else if (receiverGpsTowAtTimeOfTransmission > SECONDS_IN_WEEK) {
-      receiverGpsTowAtTimeOfTransmission -= SECONDS_IN_WEEK;
-      receiverGpsWeek += 1;
-    }
-
-    // Compute the satellite clock correction term (Seconds)
-    double clockCorrectionSeconds =
-        SatelliteClockCorrectionCalculator.calculateSatClockCorrAndEccAnomAndTkIteratively(
-            ephemerisProto, receiverGpsTowAtTimeOfTransmission,
-            receiverGpsWeek).satelliteClockCorrectionMeters / SPEED_OF_LIGHT_MPS;
-
-    // Correct with the satellite clock correction term
-    double receiverGpsTowAtTimeOfTransmissionCorrectedSec =
-        receiverGpsTowAtTimeOfTransmission + clockCorrectionSeconds;
-
-    // Adjust for week rollover due to satellite clock correction
-    if (receiverGpsTowAtTimeOfTransmissionCorrectedSec < 0.0) {
-      receiverGpsTowAtTimeOfTransmissionCorrectedSec += SECONDS_IN_WEEK;
-      receiverGpsWeek -= 1;
-    }
-    if (receiverGpsTowAtTimeOfTransmissionCorrectedSec > SECONDS_IN_WEEK) {
-      receiverGpsTowAtTimeOfTransmissionCorrectedSec -= SECONDS_IN_WEEK;
-      receiverGpsWeek += 1;
-    }
-    return new GpsTimeOfWeekAndWeekNumber(receiverGpsTowAtTimeOfTransmissionCorrectedSec,
-        receiverGpsWeek);
-  }
+//  private static GpsTimeOfWeekAndWeekNumber calculateCorrectedTransmitTowAndWeek(
+//      GnssEphemeris ephemerisProto, double receiverGpsTowAtReceptionSeconds,
+//      int receiverGpsWeek, double pseudorangeMeters) throws Exception {
+//    // GPS time of week at time of transmission: Gps time corrected for transit time (page 98 ICD
+//    // GPS 200)
+//    double receiverGpsTowAtTimeOfTransmission =
+//        receiverGpsTowAtReceptionSeconds - pseudorangeMeters / SPEED_OF_LIGHT_MPS;
+//
+//    // Adjust for week rollover
+//    if (receiverGpsTowAtTimeOfTransmission < 0) {
+//      receiverGpsTowAtTimeOfTransmission += SECONDS_IN_WEEK;
+//      receiverGpsWeek -= 1;
+//    } else if (receiverGpsTowAtTimeOfTransmission > SECONDS_IN_WEEK) {
+//      receiverGpsTowAtTimeOfTransmission -= SECONDS_IN_WEEK;
+//      receiverGpsWeek += 1;
+//    }
+//
+//    // Compute the satellite clock correction term (Seconds)
+//    double clockCorrectionSeconds =
+//        SatelliteClockCorrectionCalculator.calculateSatClockCorrAndEccAnomAndTkIteratively(
+//            ephemerisProto, receiverGpsTowAtTimeOfTransmission,
+//            receiverGpsWeek).satelliteClockCorrectionMeters / SPEED_OF_LIGHT_MPS;
+//
+//    // Correct with the satellite clock correction term
+//    double receiverGpsTowAtTimeOfTransmissionCorrectedSec =
+//        receiverGpsTowAtTimeOfTransmission + clockCorrectionSeconds;
+//
+//    // Adjust for week rollover due to satellite clock correction
+//    if (receiverGpsTowAtTimeOfTransmissionCorrectedSec < 0.0) {
+//      receiverGpsTowAtTimeOfTransmissionCorrectedSec += SECONDS_IN_WEEK;
+//      receiverGpsWeek -= 1;
+//    }
+//    if (receiverGpsTowAtTimeOfTransmissionCorrectedSec > SECONDS_IN_WEEK) {
+//      receiverGpsTowAtTimeOfTransmissionCorrectedSec -= SECONDS_IN_WEEK;
+//      receiverGpsWeek += 1;
+//    }
+//    Log.w("testtag", "what is inside this"+receiverGpsTowAtTimeOfTransmissionCorrectedSec+" "+
+//    +receiverGpsWeek);
+//    return new GpsTimeOfWeekAndWeekNumber(receiverGpsTowAtTimeOfTransmissionCorrectedSec,
+//        receiverGpsWeek);
+//  }
 
   /**
    * Calculates the Geometry matrix (describing user to satellite geometry) given a list of
@@ -876,11 +973,18 @@ class UserPositionVelocityWeightedLeastSquare {
    * applications’ page 413
    */
   private static double[][] calculateGeometryMatrix(double[][] satellitePositionsECEFMeters,
-      double[] userPositionECEFMeters) {
+                                                    int[] constellationType,
+                                                    double[] userPositionECEFMeters) {
 
-    double[][] geometryMatrix = new double[satellitePositionsECEFMeters.length][4];
+    double[][] geometryMatrix = new double[satellitePositionsECEFMeters.length][5];
     for (int i = 0; i < satellitePositionsECEFMeters.length; i++) {
-      geometryMatrix[i][3] = 1;
+      if(constellationType[i] == GnssStatus.CONSTELLATION_GPS){
+        geometryMatrix[i][3] = 1;
+        geometryMatrix[i][4] = 0;
+      }else if(constellationType[i] == GnssStatus.CONSTELLATION_GALILEO){
+        geometryMatrix[i][3] = 0;
+        geometryMatrix[i][4] = 1;
+      }
     }
     // iterate over all satellites
     for (int i = 0; i < satellitePositionsECEFMeters.length; i++) {
@@ -915,14 +1019,16 @@ class UserPositionVelocityWeightedLeastSquare {
     /** Pseudorange covariance Matrix for the weighted least squares (meters square) */
     protected final double[][] covarianceMatrixMetersSquare;
 
+    protected final int[] constellationType;
     /** Constructor */
     private SatellitesPositionPseudorangesResidualAndCovarianceMatrix(int[] satellitePRNs,
         double[][] satellitesPositionsMeters, double[] pseudorangeResidualsMeters,
-        double[][] covarianceMatrixMetersSquare) {
+        double[][] covarianceMatrixMetersSquare, int[] constellationType) {
       this.satellitePRNs = satellitePRNs;
       this.satellitesPositionsMeters = satellitesPositionsMeters;
       this.pseudorangeResidualsMeters = pseudorangeResidualsMeters;
       this.covarianceMatrixMetersSquare = covarianceMatrixMetersSquare;
+      this.constellationType = constellationType;
     }
 
   }
@@ -932,10 +1038,10 @@ class UserPositionVelocityWeightedLeastSquare {
    */
   private static class GpsTimeOfWeekAndWeekNumber {
     /** GPS time of week in seconds */
-    private final double gpsTimeOfWeekSeconds;
+    final double gpsTimeOfWeekSeconds;
 
     /** GPS week number */
-    private final int weekNumber;
+    final int weekNumber;
 
     /** Constructor */
     private GpsTimeOfWeekAndWeekNumber(double gpsTimeOfWeekSeconds, int weekNumber) {

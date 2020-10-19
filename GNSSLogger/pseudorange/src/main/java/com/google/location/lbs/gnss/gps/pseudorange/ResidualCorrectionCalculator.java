@@ -42,7 +42,7 @@ public class ResidualCorrectionCalculator {
   private static final double BEST_USER_CLOCK_BIAS_RESIDUAL_THRESHOLD_METERS = 10;
 
   /* The number of satellites we pick for calculating the best user clock bias */
-  private static final int MIN_SATS_FOR_BIAS_COMPUTATION = 4;
+  private static final int MIN_SATS_FOR_BIAS_COMPUTATION = 6;
 
   /**
    * Corrects the pseudorange residual by the best user clock bias estimation computed from the top
