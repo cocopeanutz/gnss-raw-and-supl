@@ -86,6 +86,11 @@ public class SuplConstants {
     public static final double IONO_BETA_1 = Math.pow(2, 14);
     public static final double IONO_BETA_2 = Math.pow(2, 16);
     public static final double IONO_BETA_3 = Math.pow(2, 16);
+    public static final double NEQUICK_AZ_0 = Math.pow(2, -2);
+    public static final double NEQUICK_AZ_1 = Math.pow(2, -8);
+    public static final double NEQUICK_AZ_2 = Math.pow(2, -15);
+
+
 
     // Details of the following constants can be found in the GLONASS_ICD_5_1_EN protocol:
     // http://gauss.gge.unb.ca/GLONASS.ICD.pdf.

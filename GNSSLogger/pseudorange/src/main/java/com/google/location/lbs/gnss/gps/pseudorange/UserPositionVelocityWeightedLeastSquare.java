@@ -155,7 +155,8 @@ class UserPositionVelocityWeightedLeastSquare {
       int dayOfYear1To366,
       double[] positionVelocitySolutionECEF,
       double[] positionVelocityUncertaintyEnu,
-      double[] pseudorangeResidualMeters)
+      double[] pseudorangeResidualMeters,
+      IonoConfig ionoConfig)
       throws Exception {
 
     // Use PseudorangeSmoother to smooth the pseudorange according to: Satellite Communications and
@@ -189,7 +190,8 @@ class UserPositionVelocityWeightedLeastSquare {
               receiverGPSWeek,
               dayOfYear1To366,
               positionVelocitySolutionECEF,
-              doAtmosphericCorrections);
+              doAtmosphericCorrections,
+              ionoConfig);
 
       // Calculate the geometry matrix according to "Global Positioning System: Theory and
       // Applications", Parkinson and Spilker page 413
@@ -246,7 +248,8 @@ class UserPositionVelocityWeightedLeastSquare {
               deltaPositionMeters,
               doAtmosphericCorrections,
               satPosPseudorangeResidualAndWeight,
-              weightMatrixMetersMinus2);
+              weightMatrixMetersMinus2,
+              ionoConfig);
 
       // We use the first WLS iteration results and correct them based on the ground truth position
       // and using a clock error computed from high elevation satellites. The first iteration is
@@ -478,7 +481,8 @@ class UserPositionVelocityWeightedLeastSquare {
       double[] deltaPositionMeters,
       boolean doAtmosphericCorrections,
       SatellitesPositionPseudorangesResidualAndCovarianceMatrix satPosPseudorangeResidualAndWeight,
-      RealMatrix weightMatrixMetersMinus2)
+      RealMatrix weightMatrixMetersMinus2,
+      IonoConfig ionoConfig)
       throws Exception {
     RealMatrix weightedGeometryMatrix;
     int numberOfIterations = 0;
@@ -501,7 +505,8 @@ class UserPositionVelocityWeightedLeastSquare {
               receiverGPSWeek,
               dayOfYear1To366,
               positionSolutionECEF,
-              doAtmosphericCorrections);
+              doAtmosphericCorrections,
+              ionoConfig);
 
       // Calculate the geometry matrix according to "Global Positioning System: Theory and
       // Applications", Parkinson and Spilker page 413
@@ -607,7 +612,8 @@ class UserPositionVelocityWeightedLeastSquare {
           int receiverGpsWeek,
           int dayOfYear1To366,
           double[] userPositionECEFMeters,
-          boolean doAtmosphericCorrections)
+          boolean doAtmosphericCorrections,
+          IonoConfig ionoConfig)
           throws Exception {
     int numberOfUsefulSatellites =
         getNumberOfUsefulSatellites(usefulSatellitesToReceiverMeasurements);
@@ -621,12 +627,19 @@ class UserPositionVelocityWeightedLeastSquare {
     // satellite PRNs
     int[] satellitePRNs = new int[numberOfUsefulSatellites];
 
-    // Ionospheric model parameters
+    // Klobuchar Ionospheric model parameters
     double[] alpha =
             {ephemerisResponse.ionoProto.getAlpha(0), ephemerisResponse.ionoProto.getAlpha(1),
                     ephemerisResponse.ionoProto.getAlpha(2), ephemerisResponse.ionoProto.getAlpha(3)};
     double[] beta = {ephemerisResponse.ionoProto.getBeta(0), ephemerisResponse.ionoProto.getBeta(1),
             ephemerisResponse.ionoProto.getBeta(2), ephemerisResponse.ionoProto.getBeta(3)};
+
+    // Nequick Ionospheric model parameters
+    double[] alphaZ =
+            {ephemerisResponse.neQuickProto.getAlphaZ(0),
+              ephemerisResponse.neQuickProto.getAlphaZ(1),
+              ephemerisResponse.neQuickProto.getAlphaZ(2)};
+
     // Weight matrix for the weighted least square
     RealMatrix covarianceMatrixMetersSquare =
         new Array2DRowRealMatrix(numberOfUsefulSatellites, numberOfUsefulSatellites);
@@ -643,8 +656,10 @@ class UserPositionVelocityWeightedLeastSquare {
         satellitePRNs,
         alpha,
         beta,
+        alphaZ,
         covarianceMatrixMetersSquare,
-        constellationType);
+        constellationType,
+        ionoConfig);
 
     return new SatellitesPositionPseudorangesResidualAndCovarianceMatrix(satellitePRNs,
         satellitesPositionsECEFMeters, deltaPseudorangesMeters,
@@ -672,8 +687,10 @@ class UserPositionVelocityWeightedLeastSquare {
       int[] satellitePRNs,
       double[] alpha,
       double[] beta,
+      double[] alphaZ,
       RealMatrix covarianceMatrixMetersSquare,
-      int[] constellationType)
+      int[] constellationType,
+      IonoConfig ionoConfig)
       throws Exception {
     // user position without the clock estimate
     double[] userPositionTempECEFMeters =
@@ -731,18 +748,27 @@ class UserPositionVelocityWeightedLeastSquare {
         satellitesPositionsECEFMeters[satsCounter][2] = satPosECEFMetersVelocityMPS.positionZMeters;
 
         // Calculate ionospheric and tropospheric corrections
-        double ionosphericCorrectionMeters;
+        double ionosphericCorrectionMeters=0;
         double troposphericCorrectionMeters;
         if (doAtmosphericCorrections) {
-          ionosphericCorrectionMeters =
-              IonosphericModel.ionoKlobucharCorrectionSeconds(
-                      userPositionTempECEFMeters,
-                      satellitesPositionsECEFMeters[satsCounter],
-                      (double)usefulSatellitesToReceiverMeasurements.get(i).transmitTimeNs*(1E-9)%604800,
-                      alpha,
-                      beta,
-                      IonosphericModel.L1_FREQ_HZ)
-                  * SPEED_OF_LIGHT_MPS;
+          if(ionoConfig == IonoConfig.IONO_KLOBUCHAR){
+            ionosphericCorrectionMeters =
+                    IonosphericModel.ionoKlobucharCorrectionSeconds(
+                            userPositionTempECEFMeters,
+                            satellitesPositionsECEFMeters[satsCounter],
+                            (double)usefulSatellitesToReceiverMeasurements.get(i).transmitTimeNs*(1E-9)%604800,
+                            alpha,
+                            beta,
+                            IonosphericModel.L1_FREQ_HZ)
+                            * SPEED_OF_LIGHT_MPS;
+          }else if(ionoConfig == IonoConfig.IONO_NEQUICK){
+            ionosphericCorrectionMeters =
+                    IonosphericModel.ionoNeQuickCorrectionMeters(
+            userPositionTempECEFMeters,
+            satellitesPositionsECEFMeters[satsCounter],
+            alphaZ,
+            IonosphericModel.L1_FREQ_HZ);
+          }
 
           troposphericCorrectionMeters =
               calculateTroposphericCorrectionMeters(
@@ -757,6 +783,7 @@ class UserPositionVelocityWeightedLeastSquare {
           troposphericCorrectionMeters = 0.0;
           ionosphericCorrectionMeters = 0.0;
         }
+        Log.v("ionosTag", "ionostag:"+ionosphericCorrectionMeters);
         double predictedPseudorangeMeters =
             calculatePredictedPseudorange(userPositionECEFMeters, satellitesPositionsECEFMeters,
                 userPositionTempECEFMeters, satsCounter, ephemeridesProto,

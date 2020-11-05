@@ -18,6 +18,13 @@ package com.google.location.lbs.gnss.gps.pseudorange;
 
 import com.google.location.lbs.gnss.gps.pseudorange.Ecef2LlaConverter.GeodeticLlaValues;
 import com.google.location.lbs.gnss.gps.pseudorange.EcefToTopocentricConverter.TopocentricAEDValues;
+import com.gnssdipgroup.nequick.NeQuickHelper;
+import com.gnssdipgroup.nequick.NeQuickException;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Date;
 
 /**
  * Calculates the Ionospheric correction of the pseudorange given the {@code userPosition},
@@ -47,6 +54,12 @@ public class IonosphericModel {
   private static final int IONO_1_IDX = 1;
   private static final int IONO_2_IDX = 2;
   private static final int IONO_3_IDX = 3;
+  private static final double PI = 3.1415926535897932384626433832795028841971693993751058209749445923078164062;
+  private static final double RAD_TO_DEG = 180.0/PI;
+
+
+  private static final double IONOSPHERIC_PROPORTIONALITY_CONSTANT_M3_PER_S2 = 40.308193;
+  private static final double TEC_UNIT = 1E16;
 
   /**
    * Calculates the Ionospheric correction of the pseudorange in seconds using the Klobuchar
@@ -135,5 +148,46 @@ public class IonosphericModel {
     ionoDelaySeconds *= (L1_FREQ_HZ * L1_FREQ_HZ) / (frequencyHz * frequencyHz);
 
     return ionoDelaySeconds;
+  }
+
+
+  /**
+   * Calculates the Ionospheric correction of the pseudorange in seconds using the Klobuchar
+   * Ionospheric model.
+   */
+  public static double ionoNeQuickCorrectionMeters(
+          double[] userPositionECEFMeters,
+          double[] satellitePositionECEFMeters,
+          double[] alphaZ,
+          double frequencyHz) {
+    GeodeticLlaValues userPosLLA = Ecef2LlaConverter.convertECEFToLLACloseForm(userPositionECEFMeters[0],
+            userPositionECEFMeters[1],
+            userPositionECEFMeters[2]);
+    GeodeticLlaValues satPosLLA = Ecef2LlaConverter.convertECEFToLLACloseForm(satellitePositionECEFMeters[0],
+            satellitePositionECEFMeters[1],
+            satellitePositionECEFMeters[2]);
+    Date date = new Date();
+    LocalDateTime localDateTime = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+    int month = localDateTime.getMonthValue();
+    double hour = localDateTime.getHour();
+    double minute = localDateTime.getMinute();
+    double second = localDateTime.getSecond();
+    double utcTimeOfDay = hour + minute/60 + second/3600;
+
+    double tec = 0;
+    try{
+      tec = NeQuickHelper.neQuickCompute(alphaZ, month, utcTimeOfDay,
+              userPosLLA.longitudeRadians*RAD_TO_DEG,
+              userPosLLA.latitudeRadians*RAD_TO_DEG,
+              userPosLLA.altitudeMeters,
+              satPosLLA.longitudeRadians*RAD_TO_DEG,
+              satPosLLA.latitudeRadians*RAD_TO_DEG,
+              satPosLLA.altitudeMeters);
+
+    }catch(NeQuickException e){
+      tec = 0;
+    }
+
+    return tec*TEC_UNIT*IONOSPHERIC_PROPORTIONALITY_CONSTANT_M3_PER_S2/(frequencyHz*frequencyHz);
   }
 }

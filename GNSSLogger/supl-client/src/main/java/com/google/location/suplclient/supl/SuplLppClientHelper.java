@@ -21,10 +21,12 @@ import com.google.location.suplclient.asn1.supl2.lpp.GNSS_ID_GLONASS;
 import com.google.location.suplclient.asn1.supl2.lpp.GNSS_ID_GLONASS_SatElement;
 import com.google.location.suplclient.asn1.supl2.lpp.GNSS_SystemTime;
 import com.google.location.suplclient.asn1.supl2.lpp.KlobucharModelParameter;
+import com.google.location.suplclient.asn1.supl2.lpp.NeQuickModelParameter;
 import com.google.location.suplclient.asn1.supl2.lpp.NAV_ClockModel;
 import com.google.location.suplclient.asn1.supl2.lpp.NavModelKeplerianSet;
 import com.google.location.suplclient.asn1.supl2.lpp.NavModelNAV_KeplerianSet;
 import com.google.location.suplclient.asn1.supl2.lpp.NavModel_GLONASS_ECEF;
+import com.google.location.suplclient.asn1.supl2.lpp.NeQuickModelParameterV12;
 import com.google.location.suplclient.asn1.supl2.lpp.StandardClockModelElementV12;
 import com.google.location.suplclient.asn1.supl2.lpp_ver12.A_GNSS_ProvideAssistanceData;
 import com.google.location.suplclient.asn1.supl2.lpp_ver12.GNSS_NavModelSatelliteElement;
@@ -39,6 +41,7 @@ import com.google.location.suplclient.ephemeris.GnssEphemeris;
 import com.google.location.suplclient.ephemeris.GpsEphemeris;
 import com.google.location.suplclient.ephemeris.KeplerianModel;
 import com.google.location.suplclient.supl.Ephemeris.IonosphericModelProto;
+import com.google.location.suplclient.supl.Ephemeris.IonosphericNeQuickProto;
 import com.google.location.suplclient.supl.SuplConstants.GnssConstants;
 import com.google.location.suplclient.supl.SuplConstants.LppConstants;
 import com.google.location.suplclient.supl.SuplConstants.ScaleFactors;
@@ -86,6 +89,22 @@ class SuplLppClientHelper {
     return ionoBuilder.build();
   }
 
+  /** iono Nequick-G */
+  static IonosphericNeQuickProto buildNeQuickModelProto(NeQuickModelParameterV12 nequick) {
+    IonosphericNeQuickProto.Builder neQuickBuilder = IonosphericNeQuickProto.newBuilder();
+    double[] alpha = new double[3];
+    alpha[0] = nequick.getAi0().getInteger().byteValue() * ScaleFactors.NEQUICK_AZ_0;
+    Log.v("InterestingTag", "alphaionoNequickraw:"+nequick.getAi0().getInteger().byteValue());
+    Log.v("InterestingTag", "alphaionoprocessed:"+alpha[0]);
+
+    alpha[1] = nequick.getAi1().getInteger().byteValue() * ScaleFactors.NEQUICK_AZ_1;
+    alpha[2] = nequick.getAi2().getInteger().byteValue() * ScaleFactors.NEQUICK_AZ_2;
+    for (int i = 0; i < alpha.length; ++i) {
+      neQuickBuilder.addAlphaZ(alpha[i]);
+    }
+
+    return neQuickBuilder.build();
+  }
   /**
    * Obtains the reference of {@link A_GNSS_ProvideAssistanceData} from {@link SUPLPOS}.
    */

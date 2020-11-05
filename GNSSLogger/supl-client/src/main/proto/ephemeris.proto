@@ -37,3 +37,12 @@ message IonosphericModelProto {
   // Period parameters.
   repeated double beta = 3;
 }
+
+// Klobuchar Ionospheric Model
+message IonosphericNeQuickProto {
+  // Time used for generating this data (typically, the queried time).
+  optional GpsTimeProto data_time = 1;
+
+  // Amplitude parameters
+  repeated double alphaZ = 2;
+}

@@ -105,8 +105,9 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
    * PseudorangePositionVelocityFromRealTimeEvents#mPositionSolutionLatLngDeg} and {@link
    * PseudorangePositionVelocityFromRealTimeEvents#mVelocitySolutionEnuMps}
    */
-  public void computePositionVelocitySolutionsFromRawMeas(GnssMeasurementsEvent event)
+  public void computePositionVelocitySolutionsFromRawMeas(GnssMeasurementsEvent event, IonoConfig ionoConfig)
       throws Exception {
+    Log.w(TAG, "getSolutionsFromRawMeas called");
     if (mReferenceLocation == null) {
       // If no reference location is received, we can not get navigation message from SUPL and hence
       // we will not try to compute location.
@@ -229,7 +230,8 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
             mGpsWeekNumber,
             positionVelocitySolutionEcef,
             positionVelocityUncertaintyEnu,
-            pseudorangeResidualMeters);
+            pseudorangeResidualMeters,
+            ionoConfig);
         // convert the position solution from ECEF to latitude, longitude and altitude
         GeodeticLlaValues latLngAlt =
             Ecef2LlaConverter.convertECEFToLLACloseForm(
@@ -256,14 +258,29 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
                 + mPositionVelocityUncertaintyEnu[1]
                 + " "
                 + mPositionVelocityUncertaintyEnu[2]);
-        Log.d(
-            TAG,
-            "Latitude, Longitude, Altitude: "
-                + mPositionSolutionLatLngDeg[0]
-                + " "
-                + mPositionSolutionLatLngDeg[1]
-                + " "
-                + mPositionSolutionLatLngDeg[2]);
+        if(ionoConfig==IonoConfig.IONO_NEQUICK){
+          Log.d(TAG, "Latitude NeQuick");
+          Log.d(
+                  TAG,
+                  "Latitude NeQuick, Longitude, Altitude: "
+                          + mPositionSolutionLatLngDeg[0]
+                          + " "
+                          + mPositionSolutionLatLngDeg[1]
+                          + " "
+                          + mPositionSolutionLatLngDeg[2]);
+
+        }else if(ionoConfig==IonoConfig.IONO_KLOBUCHAR){
+          Log.d(TAG, "Latitude Klobuchar");
+          Log.d(
+                  TAG,
+                  "Latitude Klobuchar, Longitude, Altitude: "
+                          + mPositionSolutionLatLngDeg[0]
+                          + " "
+                          + mPositionSolutionLatLngDeg[1]
+                          + " "
+                          + mPositionSolutionLatLngDeg[2]);
+
+        }
         EnuValues velocityEnu = Ecef2EnuConverter.convertEcefToEnu(
             positionVelocitySolutionEcef[4],
             positionVelocitySolutionEcef[5],
@@ -356,7 +373,8 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
       int gpsWeekNumber,
       double[] positionVelocitySolutionEcef,
       double[] positionVelocityUncertaintyEnu,
-      double[] pseudorangeResidualMeters)
+      double[] pseudorangeResidualMeters,
+      IonoConfig ionoConfig)
       throws Exception {
 
     List<GpsMeasurementWithRangeAndUncertainty> usefulSatellitesToPseudorangeMeasurements =
@@ -374,7 +392,8 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
         dayOfYear1To366,
         positionVelocitySolutionEcef,
         positionVelocityUncertaintyEnu,
-        pseudorangeResidualMeters);
+        pseudorangeResidualMeters,
+        ionoConfig);
 
     Log.d(
         TAG,
@@ -396,6 +415,13 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
             + " "
             + positionVelocitySolutionEcef[6]);
     Log.d(TAG, "Estimated Receiver clock offset rate in mps: " + positionVelocitySolutionEcef[7]);
+
+
+
+
+
+
+
   }
 
   /**

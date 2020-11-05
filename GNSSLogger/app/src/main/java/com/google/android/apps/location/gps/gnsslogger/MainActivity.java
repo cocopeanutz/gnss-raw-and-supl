@@ -57,7 +57,7 @@ import com.google.android.gms.location.DetectedActivity;
 import java.util.Locale;
 
 import com.google.location.suplclient.supl.SuplTester;
-
+import com.gnssdipgroup.nequick.NeQuickHelper;
 
 
 
@@ -160,6 +160,12 @@ public class MainActivity extends AppCompatActivity
     public void run (){
       newTester.runStepByStepTcpClientTest();
     }});
+    double solarCoef[] = {0.1, 0.2, 0.3};
+//    double TEC = NeQuickHelper.neQuickCompute(solarCoef,
+//    11, 2,
+//    34, 44, 0,
+//    40, 50, 20200000);
+//    Log.i("nequickTag", "nequick:"+TEC);
     Log.i("testtag", "afterNewTester");
   }
 

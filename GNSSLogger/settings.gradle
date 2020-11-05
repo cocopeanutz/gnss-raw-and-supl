@@ -1,1 +1,1 @@
-include ':app', ':pseudorange', ':supl-client'
+include ':app', ':pseudorange', ':supl-client', ':nequick'

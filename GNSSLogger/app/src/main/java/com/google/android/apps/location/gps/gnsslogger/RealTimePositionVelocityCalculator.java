@@ -29,6 +29,7 @@ import android.util.Log;
 import com.google.android.apps.location.gps.gnsslogger.ResultFragment.UIResultComponent;
 import com.google.location.lbs.gnss.gps.pseudorange.GpsMathOperations;
 import com.google.location.lbs.gnss.gps.pseudorange.GpsNavigationMessageStore;
+import com.google.location.lbs.gnss.gps.pseudorange.IonoConfig;
 import com.google.location.lbs.gnss.gps.pseudorange.PseudorangePositionVelocityFromRealTimeEvents;
 import java.text.DecimalFormat;
 import java.util.concurrent.TimeUnit;
@@ -57,7 +58,9 @@ public class RealTimePositionVelocityCalculator implements GnssListener {
 
   private static final long EARTH_RADIUS_METERS = 6371000;
   private PseudorangePositionVelocityFromRealTimeEvents
-      mPseudorangePositionVelocityFromRealTimeEvents;
+      klobucharPseudorangePositionVelocityFromRealTimeEvents;
+  private PseudorangePositionVelocityFromRealTimeEvents
+          nequickPseudorangePositionVelocityFromRealTimeEvents;
   private HandlerThread mPositionVelocityCalculationHandlerThread;
   private Handler mMyPositionVelocityCalculationHandler;
   private int mCurrentColor = Color.rgb(0x4a, 0x5f, 0x70);
@@ -74,8 +77,10 @@ public class RealTimePositionVelocityCalculator implements GnssListener {
     Color.rgb(0x66, 0x77, 0x7d)
   };
   private int mResidualPlotStatus;
-  private double[] mGroundTruth = null;
-  private int mPositionSolutionCount = 0;
+  private double[] klobucharGroundTruth = null;
+  private double[] nequickGroundTruth = null;
+  private int klobucharPositionSolutionCount = 0;
+  private int nequickPositionSolutionCount = 0;
 
   public RealTimePositionVelocityCalculator() {
     mPositionVelocityCalculationHandlerThread =
@@ -89,8 +94,10 @@ public class RealTimePositionVelocityCalculator implements GnssListener {
           @Override
           public void run() {
             try {
-              mPseudorangePositionVelocityFromRealTimeEvents =
+              klobucharPseudorangePositionVelocityFromRealTimeEvents =
                   new PseudorangePositionVelocityFromRealTimeEvents();
+              nequickPseudorangePositionVelocityFromRealTimeEvents =
+                      new PseudorangePositionVelocityFromRealTimeEvents();
             } catch (Exception e) {
               Log.e(
                   GnssContainer.TAG,
@@ -134,14 +141,20 @@ public class RealTimePositionVelocityCalculator implements GnssListener {
           new Runnable() {
             @Override
             public void run() {
-              if (mPseudorangePositionVelocityFromRealTimeEvents == null) {
+              if (klobucharPseudorangePositionVelocityFromRealTimeEvents == null
+              || nequickPseudorangePositionVelocityFromRealTimeEvents == null) {
                 return;
               }
               try {
-                mPseudorangePositionVelocityFromRealTimeEvents.setReferencePosition(
+                //notes what is location
+                klobucharPseudorangePositionVelocityFromRealTimeEvents.setReferencePosition(
                     (int) (location.getLatitude() * 1E7),
                     (int) (location.getLongitude() * 1E7),
                     (int) (location.getAltitude() * 1E7));
+                nequickPseudorangePositionVelocityFromRealTimeEvents.setReferencePosition(
+                        (int) (location.getLatitude() * 1E7),
+                        (int) (location.getLongitude() * 1E7),
+                        (int) (location.getAltitude() * 1E7));
               } catch (Exception e) {
                 Log.e(GnssContainer.TAG, " Exception setting reference location : ", e);
               }
@@ -156,15 +169,18 @@ public class RealTimePositionVelocityCalculator implements GnssListener {
             new Runnable() {
               @Override
               public void run() {
-                if (mPseudorangePositionVelocityFromRealTimeEvents == null) {
+                if (nequickPseudorangePositionVelocityFromRealTimeEvents == null
+                || klobucharPseudorangePositionVelocityFromRealTimeEvents == null) {
                   return;
                 }
                 double[] posSolution =
-                    mPseudorangePositionVelocityFromRealTimeEvents.getPositionSolutionLatLngDeg();
+                    klobucharPseudorangePositionVelocityFromRealTimeEvents.getPositionSolutionLatLngDeg();
+                double[] nequickPosSolution =
+                        nequickPseudorangePositionVelocityFromRealTimeEvents.getPositionSolutionLatLngDeg();
                 double[] velSolution =
-                    mPseudorangePositionVelocityFromRealTimeEvents.getVelocitySolutionEnuMps();
+                    klobucharPseudorangePositionVelocityFromRealTimeEvents.getVelocitySolutionEnuMps();
                 double[] pvUncertainty =
-                    mPseudorangePositionVelocityFromRealTimeEvents
+                    klobucharPseudorangePositionVelocityFromRealTimeEvents
                         .getPositionVelocityUncertaintyEnu();
                 if (Double.isNaN(posSolution[0])) {
                   logPositionFromRawDataEvent("No Position Calculated Yet");
@@ -172,7 +188,8 @@ public class RealTimePositionVelocityCalculator implements GnssListener {
                 } else {
                   if (mResidualPlotStatus != RESIDUAL_MODE_DISABLED
                       && mResidualPlotStatus != RESIDUAL_MODE_AT_INPUT_LOCATION) {
-                    updateGroundTruth(posSolution);
+                    updateKlobucharGroundTruth(posSolution);
+                    updateNequickGroundTruth(nequickPosSolution);
                   }
                   String formattedLatDegree = new DecimalFormat("##.######").format(posSolution[0]);
                   String formattedLngDegree = new DecimalFormat("##.######").format(posSolution[1]);
@@ -297,7 +314,8 @@ public class RealTimePositionVelocityCalculator implements GnssListener {
                     mPlotFragment.updateCnoTab(event);
                   }
                 });
-            if (mPseudorangePositionVelocityFromRealTimeEvents == null) {
+            if (klobucharPseudorangePositionVelocityFromRealTimeEvents == null
+            || nequickPseudorangePositionVelocityFromRealTimeEvents == null) {
               return;
             }
             try {
@@ -306,11 +324,15 @@ public class RealTimePositionVelocityCalculator implements GnssListener {
                 // The position at last epoch is used for the residual analysis.
                 // This is happening by updating the ground truth for pseudorange before using the
                 // new arriving pseudoranges to compute a new position.
-                mPseudorangePositionVelocityFromRealTimeEvents
-                    .setCorrectedResidualComputationTruthLocationLla(mGroundTruth);
+                klobucharPseudorangePositionVelocityFromRealTimeEvents
+                    .setCorrectedResidualComputationTruthLocationLla(klobucharGroundTruth);
+                nequickPseudorangePositionVelocityFromRealTimeEvents
+                    .setCorrectedResidualComputationTruthLocationLla(nequickGroundTruth);
               }
-              mPseudorangePositionVelocityFromRealTimeEvents
-                  .computePositionVelocitySolutionsFromRawMeas(event);
+              klobucharPseudorangePositionVelocityFromRealTimeEvents
+                  .computePositionVelocitySolutionsFromRawMeas(event, IonoConfig.IONO_KLOBUCHAR);
+              nequickPseudorangePositionVelocityFromRealTimeEvents
+                  .computePositionVelocitySolutionsFromRawMeas(event, IonoConfig.IONO_NEQUICK);
               // Running on main thread instead of in parallel will improve the thread safety
               if (mResidualPlotStatus != RESIDUAL_MODE_DISABLED) {
                 mMainActivity.runOnUiThread(
@@ -318,7 +340,7 @@ public class RealTimePositionVelocityCalculator implements GnssListener {
                       @Override
                       public void run() {
                         mPlotFragment.updatePseudorangeResidualTab(
-                            mPseudorangePositionVelocityFromRealTimeEvents
+                            klobucharPseudorangePositionVelocityFromRealTimeEvents
                                 .getPseudorangeResidualsMeters(),
                             TimeUnit.NANOSECONDS.toSeconds(
                                 event.getClock().getTimeNanos()));
@@ -354,7 +376,7 @@ public class RealTimePositionVelocityCalculator implements GnssListener {
   @Override
   public void onGnssNavigationMessageReceived(GnssNavigationMessage event) {
     if (event.getType() == GnssNavigationMessage.TYPE_GPS_L1CA) {
-      mPseudorangePositionVelocityFromRealTimeEvents.parseHwNavigationMessageUpdates(event);
+      klobucharPseudorangePositionVelocityFromRealTimeEvents.parseHwNavigationMessageUpdates(event);
     }
   }
 
@@ -445,37 +467,66 @@ public class RealTimePositionVelocityCalculator implements GnssListener {
   /**
    * Update the ground truth for pseudorange residual analysis based on the user activity.
    */
-  private synchronized void updateGroundTruth(double[] posSolution) {
+  private synchronized void updateKlobucharGroundTruth(double[] posSolution) {
 
     // In case of switching between modes, last ground truth from previous mode will be used.
-    if (mGroundTruth == null) {
-      // If mGroundTruth has not been initialized, we set it to be the same as position solution
-      mGroundTruth = new double[] {0.0, 0.0, 0.0};
-      mGroundTruth[0] = posSolution[0];
-      mGroundTruth[1] = posSolution[1];
-      mGroundTruth[2] = posSolution[2];
+    if (klobucharGroundTruth == null) {
+      // If klobucharGroundTruth has not been initialized, we set it to be the same as position solution
+      klobucharGroundTruth = new double[] {0.0, 0.0, 0.0};
+      klobucharGroundTruth[0] = posSolution[0];
+      klobucharGroundTruth[1] = posSolution[1];
+      klobucharGroundTruth[2] = posSolution[2];
     } else if (mResidualPlotStatus == RESIDUAL_MODE_STILL) {
       // If the user is standing still, we average our WLS position solution
       // Reference: https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
-      mGroundTruth[0] =
-          (mGroundTruth[0] * mPositionSolutionCount + posSolution[0])
-              / (mPositionSolutionCount + 1);
-      mGroundTruth[1] =
-          (mGroundTruth[1] * mPositionSolutionCount + posSolution[1])
-              / (mPositionSolutionCount + 1);
-      mGroundTruth[2] =
-          (mGroundTruth[2] * mPositionSolutionCount + posSolution[2])
-              / (mPositionSolutionCount + 1);
-      mPositionSolutionCount++;
+      klobucharGroundTruth[0] =
+          (klobucharGroundTruth[0] * klobucharPositionSolutionCount + posSolution[0])
+              / (klobucharPositionSolutionCount + 1);
+      klobucharGroundTruth[1] =
+          (klobucharGroundTruth[1] * klobucharPositionSolutionCount + posSolution[1])
+              / (klobucharPositionSolutionCount + 1);
+      klobucharGroundTruth[2] =
+          (klobucharGroundTruth[2] * klobucharPositionSolutionCount + posSolution[2])
+              / (klobucharPositionSolutionCount + 1);
+      klobucharPositionSolutionCount++;
     } else if (mResidualPlotStatus == RESIDUAL_MODE_MOVING) {
       // If the user is moving fast, we use single WLS position solution
-      mGroundTruth[0] = posSolution[0];
-      mGroundTruth[1] = posSolution[1];
-      mGroundTruth[2] = posSolution[2];
-      mPositionSolutionCount = 0;
+      klobucharGroundTruth[0] = posSolution[0];
+      klobucharGroundTruth[1] = posSolution[1];
+      klobucharGroundTruth[2] = posSolution[2];
+      klobucharPositionSolutionCount = 0;
     }
   }
+  private synchronized void updateNequickGroundTruth(double[] posSolution) {
 
+    // In case of switching between modes, last ground truth from previous mode will be used.
+    if (nequickGroundTruth == null) {
+      // If nequickGroundTruth has not been initialized, we set it to be the same as position solution
+      nequickGroundTruth = new double[] {0.0, 0.0, 0.0};
+      nequickGroundTruth[0] = posSolution[0];
+      nequickGroundTruth[1] = posSolution[1];
+      nequickGroundTruth[2] = posSolution[2];
+    } else if (mResidualPlotStatus == RESIDUAL_MODE_STILL) {
+      // If the user is standing still, we average our WLS position solution
+      // Reference: https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
+      nequickGroundTruth[0] =
+              (nequickGroundTruth[0] * nequickPositionSolutionCount + posSolution[0])
+                      / (nequickPositionSolutionCount + 1);
+      nequickGroundTruth[1] =
+              (nequickGroundTruth[1] * nequickPositionSolutionCount + posSolution[1])
+                      / (nequickPositionSolutionCount + 1);
+      nequickGroundTruth[2] =
+              (nequickGroundTruth[2] * nequickPositionSolutionCount + posSolution[2])
+                      / (nequickPositionSolutionCount + 1);
+      nequickPositionSolutionCount++;
+    } else if (mResidualPlotStatus == RESIDUAL_MODE_MOVING) {
+      // If the user is moving fast, we use single WLS position solution
+      nequickGroundTruth[0] = posSolution[0];
+      nequickGroundTruth[1] = posSolution[1];
+      nequickGroundTruth[2] = posSolution[2];
+      nequickPositionSolutionCount = 0;
+    }
+  }
   /**
    * Sets {@link MapFragment} for receiving WLS location update
    */
@@ -504,38 +555,51 @@ public class RealTimePositionVelocityCalculator implements GnssListener {
    */
   public void setResidualPlotMode(int residualPlotStatus, double[] fixedGroundTruth) {
     mResidualPlotStatus = residualPlotStatus;
-    if (mPseudorangePositionVelocityFromRealTimeEvents == null) {
+    if (klobucharPseudorangePositionVelocityFromRealTimeEvents == null
+    || nequickPseudorangePositionVelocityFromRealTimeEvents == null) {
       return;
     }
     switch (mResidualPlotStatus) {
       case RESIDUAL_MODE_MOVING:
-        mPseudorangePositionVelocityFromRealTimeEvents
-            .setCorrectedResidualComputationTruthLocationLla(mGroundTruth);
+        klobucharPseudorangePositionVelocityFromRealTimeEvents
+            .setCorrectedResidualComputationTruthLocationLla(klobucharGroundTruth);
+        nequickPseudorangePositionVelocityFromRealTimeEvents
+            .setCorrectedResidualComputationTruthLocationLla(nequickGroundTruth);
         logEvent("Residual Plot", "Mode is set to moving", mCurrentColor);
         break;
 
       case RESIDUAL_MODE_STILL:
-        mPseudorangePositionVelocityFromRealTimeEvents
-            .setCorrectedResidualComputationTruthLocationLla(mGroundTruth);
+        klobucharPseudorangePositionVelocityFromRealTimeEvents
+            .setCorrectedResidualComputationTruthLocationLla(klobucharGroundTruth);
+        nequickPseudorangePositionVelocityFromRealTimeEvents
+            .setCorrectedResidualComputationTruthLocationLla(nequickGroundTruth);
         logEvent("Residual Plot", "Mode is set to still", mCurrentColor);
         break;
 
       case RESIDUAL_MODE_AT_INPUT_LOCATION:
-        mPseudorangePositionVelocityFromRealTimeEvents
+        klobucharPseudorangePositionVelocityFromRealTimeEvents
+                .setCorrectedResidualComputationTruthLocationLla(fixedGroundTruth);
+        nequickPseudorangePositionVelocityFromRealTimeEvents
             .setCorrectedResidualComputationTruthLocationLla(fixedGroundTruth);
         logEvent("Residual Plot", "Mode is set to fixed ground truth", mCurrentColor);
         break;
 
       case RESIDUAL_MODE_DISABLED:
-        mGroundTruth = null;
-        mPseudorangePositionVelocityFromRealTimeEvents
-            .setCorrectedResidualComputationTruthLocationLla(mGroundTruth);
+        klobucharGroundTruth = null;
+        nequickGroundTruth = null;
+        klobucharPseudorangePositionVelocityFromRealTimeEvents
+            .setCorrectedResidualComputationTruthLocationLla(klobucharGroundTruth);
+        nequickPseudorangePositionVelocityFromRealTimeEvents
+            .setCorrectedResidualComputationTruthLocationLla(nequickGroundTruth);
+
         logEvent("Residual Plot", "Mode is set to Disabled", mCurrentColor);
         break;
 
       default:
-        mPseudorangePositionVelocityFromRealTimeEvents
+        klobucharPseudorangePositionVelocityFromRealTimeEvents
             .setCorrectedResidualComputationTruthLocationLla(null);
+        nequickPseudorangePositionVelocityFromRealTimeEvents
+                .setCorrectedResidualComputationTruthLocationLla(null);
     }
   }
 
