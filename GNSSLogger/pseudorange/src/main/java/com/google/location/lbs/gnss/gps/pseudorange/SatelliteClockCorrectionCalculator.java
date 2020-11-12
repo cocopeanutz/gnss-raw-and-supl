@@ -142,6 +142,7 @@ public class SatelliteClockCorrectionCalculator {
                   + MAX_ITERATIONS + " iterations");
         }
       } while (changeInSatClockCorrection > ACCURACY_TOLERANCE);
+
       tkSec = timeOfTransmissionIncludingRxWeekSec - (
               weekNumberEphemeris * SECONDS_IN_WEEK + keplerianModel.toeS
                       + satClockCorrectionSeconds);

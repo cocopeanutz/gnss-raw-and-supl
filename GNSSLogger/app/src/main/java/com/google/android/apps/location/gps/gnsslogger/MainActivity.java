@@ -54,8 +54,14 @@ import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListe
 import com.google.android.gms.location.ActivityRecognition;
 import com.google.android.gms.location.ActivityRecognitionResult;
 import com.google.android.gms.location.DetectedActivity;
+
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.Date;
 import java.util.Locale;
 
+import com.google.location.lbs.gnss.gps.pseudorange.GnssInsideLogger;
 import com.google.location.suplclient.supl.SuplTester;
 import com.gnssdipgroup.nequick.NeQuickHelper;
 

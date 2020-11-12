@@ -47,6 +47,8 @@ import com.google.location.suplclient.supl.SuplConnectionRequest;
 import com.google.location.suplclient.supl.SuplController;
 import com.google.location.suplclient.supl.SuplTester;
 
+import static java.lang.System.currentTimeMillis;
+
 /**
  * Helper class for calculating Gps position and velocity solution using weighted least squares
  * where the raw Gps measurements are parsed as a {@link BufferedReader} with the option to apply
@@ -84,6 +86,7 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
   private long mDeltaTimeMillisToMakeSuplRequest = TimeUnit.MINUTES.toMillis(30);
   private boolean mFirstSuplRequestNeeded = true;
   private EphemerisResponse ephemerisResponse = null;
+  private int successCount = 0;
 
   // Only the interface of pseudorange smoother is provided. Please implement customized smoother.
   PseudorangeSmoother mPseudorangeSmoother = new PseudorangeNoSmoothingSmoother();
@@ -99,6 +102,10 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
   private int mGpsWeekNumber = 0;
   private long mArrivalTimeSinceGpsEpochNs = 0;
 
+  private GnssInsideLogger gnssInsideLogger;
+  public PseudorangePositionVelocityFromRealTimeEvents(GnssInsideLogger gnssInsideLogger){
+    this.gnssInsideLogger = gnssInsideLogger;
+  }
   /**
    * Computes Weighted least square position and velocity solutions from a received {@link
    * GnssMeasurementsEvent} and store the result in {@link
@@ -172,13 +179,13 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
       Log.d(TAG, "Using navigation message from SUPL server");
 
       if (mFirstSuplRequestNeeded
-          || (System.currentTimeMillis() - mLastReceivedSuplMessageTimeMillis)
+          || (currentTimeMillis() - mLastReceivedSuplMessageTimeMillis)
               > mDeltaTimeMillisToMakeSuplRequest) {
         // The following line is blocking call for SUPL connection and back. But it is fast enough
         ephemerisResponse = getSuplNavMessage(mReferenceLocation[0], mReferenceLocation[1]);
         if (!isEmptyNavMessage(ephemerisResponse)) {
           mFirstSuplRequestNeeded = false;
-          mLastReceivedSuplMessageTimeMillis = System.currentTimeMillis();
+          mLastReceivedSuplMessageTimeMillis = currentTimeMillis();
         } else {
           return;
         }
@@ -258,8 +265,16 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
                 + mPositionVelocityUncertaintyEnu[1]
                 + " "
                 + mPositionVelocityUncertaintyEnu[2]);
+        successCount++;
         if(ionoConfig==IonoConfig.IONO_NEQUICK){
           Log.d(TAG, "Latitude NeQuick");
+          String logStr = Double.toString(mPositionSolutionLatLngDeg[0]) +
+                  ";" + Double.toString(mPositionSolutionLatLngDeg[1]) +
+                  ";" + Double.toString(mPositionSolutionLatLngDeg[2]) +
+                  ";" + Integer.toString(successCount) +
+                  ";" + Integer.toString(numberOfUsefulSatellites) +
+                  ";" + currentTimeMillis() + "\n";
+          gnssInsideLogger.appendLog(logStr);
           Log.d(
                   TAG,
                   "Latitude NeQuick, Longitude, Altitude: "
@@ -270,6 +285,13 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
                           + mPositionSolutionLatLngDeg[2]);
 
         }else if(ionoConfig==IonoConfig.IONO_KLOBUCHAR){
+          String logStr = Double.toString(mPositionSolutionLatLngDeg[0]) +
+                  ";" + Double.toString(mPositionSolutionLatLngDeg[1]) +
+                  ";" + Double.toString(mPositionSolutionLatLngDeg[2]) +
+                  ";" + Integer.toString(successCount) +
+                  ";" + Integer.toString(numberOfUsefulSatellites) +
+                  ";" + currentTimeMillis() + "\n";
+          gnssInsideLogger.appendLog(logStr);
           Log.d(TAG, "Latitude Klobuchar");
           Log.d(
                   TAG,

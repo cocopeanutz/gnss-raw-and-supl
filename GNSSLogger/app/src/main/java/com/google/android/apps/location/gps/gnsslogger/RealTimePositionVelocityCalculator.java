@@ -27,6 +27,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
 import com.google.android.apps.location.gps.gnsslogger.ResultFragment.UIResultComponent;
+import com.google.location.lbs.gnss.gps.pseudorange.GnssInsideLogger;
 import com.google.location.lbs.gnss.gps.pseudorange.GpsMathOperations;
 import com.google.location.lbs.gnss.gps.pseudorange.GpsNavigationMessageStore;
 import com.google.location.lbs.gnss.gps.pseudorange.IonoConfig;
@@ -57,6 +58,9 @@ public class RealTimePositionVelocityCalculator implements GnssListener {
   public static final int RESIDUAL_MODE_AT_INPUT_LOCATION = 2;
 
   private static final long EARTH_RADIUS_METERS = 6371000;
+
+  GnssInsideLogger klobucharGnssInsideLogger = new GnssInsideLogger("klobuchar");
+  GnssInsideLogger nequickGnssInsideLogger = new GnssInsideLogger("nequick");
   private PseudorangePositionVelocityFromRealTimeEvents
       klobucharPseudorangePositionVelocityFromRealTimeEvents;
   private PseudorangePositionVelocityFromRealTimeEvents
@@ -95,9 +99,9 @@ public class RealTimePositionVelocityCalculator implements GnssListener {
           public void run() {
             try {
               klobucharPseudorangePositionVelocityFromRealTimeEvents =
-                  new PseudorangePositionVelocityFromRealTimeEvents();
+                  new PseudorangePositionVelocityFromRealTimeEvents(klobucharGnssInsideLogger);
               nequickPseudorangePositionVelocityFromRealTimeEvents =
-                      new PseudorangePositionVelocityFromRealTimeEvents();
+                      new PseudorangePositionVelocityFromRealTimeEvents(nequickGnssInsideLogger);
             } catch (Exception e) {
               Log.e(
                   GnssContainer.TAG,
@@ -555,6 +559,7 @@ public class RealTimePositionVelocityCalculator implements GnssListener {
    */
   public void setResidualPlotMode(int residualPlotStatus, double[] fixedGroundTruth) {
     mResidualPlotStatus = residualPlotStatus;
+
     if (klobucharPseudorangePositionVelocityFromRealTimeEvents == null
     || nequickPseudorangePositionVelocityFromRealTimeEvents == null) {
       return;

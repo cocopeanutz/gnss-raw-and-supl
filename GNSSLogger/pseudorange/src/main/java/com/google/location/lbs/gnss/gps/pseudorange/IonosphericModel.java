@@ -16,6 +16,8 @@
 
 package com.google.location.lbs.gnss.gps.pseudorange;
 
+import android.util.Log;
+
 import com.google.location.lbs.gnss.gps.pseudorange.Ecef2LlaConverter.GeodeticLlaValues;
 import com.google.location.lbs.gnss.gps.pseudorange.EcefToTopocentricConverter.TopocentricAEDValues;
 import com.gnssdipgroup.nequick.NeQuickHelper;
@@ -24,6 +26,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Date;
 
 /**
@@ -166,14 +169,13 @@ public class IonosphericModel {
     GeodeticLlaValues satPosLLA = Ecef2LlaConverter.convertECEFToLLACloseForm(satellitePositionECEFMeters[0],
             satellitePositionECEFMeters[1],
             satellitePositionECEFMeters[2]);
-    Date date = new Date();
-    LocalDateTime localDateTime = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+    LocalDateTime localDateTime = LocalDateTime.now(ZoneOffset.UTC);;
     int month = localDateTime.getMonthValue();
     double hour = localDateTime.getHour();
     double minute = localDateTime.getMinute();
     double second = localDateTime.getSecond();
     double utcTimeOfDay = hour + minute/60 + second/3600;
-
+    Log.w("newtagtag", "utcTimeOfDay:"+utcTimeOfDay);
     double tec = 0;
     try{
       tec = NeQuickHelper.neQuickCompute(alphaZ, month, utcTimeOfDay,
